@@ -3,8 +3,9 @@
   "current_exp": "Masking Cons Reg",
   "progress": "1/3 seeds",
   "current_seed": 42,
-  "last_update": "2026-05-21T19:04:16.857986",
+  "last_update": "2026-05-21T19:16:16.656296",
   "logs": [
-    "[19:04:16] \n[Masking Cons Reg] seed=42  lam=0.1"
+    "[19:04:16] \n[Masking Cons Reg] seed=42  lam=0.1",
+    "[19:16:16]   ep1: total=0.4071 cls=0.4058 cons=0.0131 | val_F1=0.7736"
   ]
 }
