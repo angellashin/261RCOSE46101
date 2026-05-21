@@ -3,8 +3,9 @@
   "current_exp": "Validity-Gated",
   "progress": "1/3 seeds",
   "current_seed": 42,
-  "last_update": "2026-05-21T22:16:29.215942",
+  "last_update": "2026-05-21T22:28:25.537441",
   "logs": [
-    "[22:16:29] \n[Validity-Gated] seed=42  lam=0.1"
+    "[22:16:29] \n[Validity-Gated] seed=42  lam=0.1",
+    "[22:28:25]   ep1: total=0.4118 cls=0.4107 cons=0.0106 | val_F1=0.7732"
   ]
 }
