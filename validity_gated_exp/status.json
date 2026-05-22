@@ -1,0 +1,10 @@
+{
+  "status": "running",
+  "current_exp": "Validity-Gated",
+  "progress": "3/3 seeds",
+  "current_seed": 456,
+  "last_update": "2026-05-21T23:20:24.505238",
+  "logs": [
+    "[23:20:24] \n[Validity-Gated] seed=456  lam=0.1"
+  ]
+}
