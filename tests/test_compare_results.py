@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO_ROOT / "validity_gated_exp" / "compare_results.py"
+sys.path.insert(0, str(MODULE_PATH.parent))
 
 spec = importlib.util.spec_from_file_location("compare_results", MODULE_PATH)
 compare_results = importlib.util.module_from_spec(spec)

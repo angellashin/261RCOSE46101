@@ -39,6 +39,53 @@ class ExperimentUtilsTest(unittest.TestCase):
         )
         self.assertAlmostEqual(lam, 0.1)
 
+    def test_unique_result_name_includes_lambda_and_source(self):
+        name = experiment_utils.unique_result_name(
+            "Strict-Gated",
+            {"Strict-Gated"},
+            lambda_value=0.2,
+            source="new_run",
+        )
+        self.assertEqual(name, "Strict-Gated [lambda=0.2, new_run]")
+
+    def test_merge_result_maps_renames_different_duplicate_configs(self):
+        existing = {
+            "_meta": {"git_commit": "old"},
+            "Strict-Gated": {
+                "f1": [0.79],
+                "config": {"lambda": 0.1},
+            },
+        }
+        new = {
+            "_meta": {"git_commit": "new"},
+            "Strict-Gated": {
+                "f1": [0.81],
+                "config": {"lambda": 0.2},
+            },
+        }
+        merged, renames = experiment_utils.merge_result_maps(existing, new, source="new_run")
+        self.assertEqual(renames, [("Strict-Gated", "Strict-Gated [lambda=0.2, new_run]")])
+        self.assertEqual(merged["Strict-Gated"]["f1"], [0.79])
+        self.assertEqual(merged["Strict-Gated [lambda=0.2, new_run]"]["f1"], [0.81])
+        self.assertEqual(merged["_meta"], {"git_commit": "new"})
+
+    def test_merge_result_maps_overwrites_identical_config(self):
+        existing = {
+            "Strict-Gated": {
+                "f1": [0.79],
+                "config": {"lambda": 0.1},
+            },
+        }
+        new = {
+            "Strict-Gated": {
+                "f1": [0.80],
+                "config": {"lambda": 0.1},
+            },
+        }
+        merged, renames = experiment_utils.merge_result_maps(existing, new)
+        self.assertEqual(renames, [])
+        self.assertEqual(merged["Strict-Gated"]["f1"], [0.80])
+
 
 if __name__ == "__main__":
     unittest.main()

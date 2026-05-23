@@ -18,6 +18,8 @@ from pathlib import Path
 from statistics import mean, pstdev
 from typing import Any
 
+from experiment_utils import unique_result_name
+
 
 PRIMARY_METRICS = [
     ("f1", "F1", "higher"),
@@ -42,13 +44,7 @@ def load_results(paths: list[Path]) -> dict[str, dict[str, Any]]:
 def duplicate_result_name(name: str, metrics: dict[str, Any], path: Path, existing: set[str]) -> str:
     config = metrics.get("config")
     lam = config.get("lambda") if isinstance(config, dict) else None
-    suffix = f"lambda={lam}, {path.stem}" if lam is not None else path.stem
-    candidate = f"{name} [{suffix}]"
-    i = 2
-    while candidate in existing:
-        candidate = f"{name} [{suffix}, dup{i}]"
-        i += 1
-    return candidate
+    return unique_result_name(name, existing, lambda_value=lam, source=path.stem)
 
 
 def load_results_with_metadata(paths: list[Path]) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:

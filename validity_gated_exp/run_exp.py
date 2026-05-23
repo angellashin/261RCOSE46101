@@ -32,7 +32,7 @@ from dataset import (
     compute_validity, compute_validity_strict,
     load_khaters, save_cf_pairs, load_cf_pairs, HatersDataset,
 )
-from experiment_utils import coverage_matched_lambda
+from experiment_utils import coverage_matched_lambda, merge_result_maps
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
@@ -672,8 +672,10 @@ if __name__ == '__main__':
                 if existing_meta.get(key) != run_meta.get(key):
                     print(f'WARNING: existing result _meta mismatch for {key}: '
                           f'{existing_meta.get(key)} != {run_meta.get(key)}')
-        existing.update(all_results)
-        all_results = existing
+        all_results, renames = merge_result_maps(existing, all_results, source='new_run')
+        for old_name, new_name in renames:
+            print(f'WARNING: existing result "{old_name}" has different config; '
+                  f'saving new run as "{new_name}" instead of overwriting.')
     with open(RESULT_PATH, 'w', encoding='utf-8') as f:
         json.dump(all_results, f, ensure_ascii=False, indent=2)
     print(f'\nResults saved → {RESULT_PATH}')
