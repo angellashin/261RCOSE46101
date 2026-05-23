@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from collections import Counter
 from datasets import load_dataset
 from dataset import (
+    GATE_VERSION,
     load_khaters, to_binary,
     find_swap, make_swap,
     compute_validity, compute_validity_strict,
@@ -64,6 +65,7 @@ for text, label, targets in raw_train:
     cf_pairs.append({
         'original':  text,
         'cf':        cf_text,
+        'gate_version': GATE_VERSION,
         'orig_term': orig_term,
         'swap_term': swap_term,
         'category':  cat,

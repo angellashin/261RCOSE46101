@@ -164,14 +164,46 @@ python validity_gated_exp/run_exp.py \
   2>&1 | tee train_strict_lam02.log
 ```
 
-## 6. Hardware Notes
+Naive가 Strict보다 강하게 나오는 경우, Strict가 보는 valid CF 수가 더 적어서 regularization signal이 약한지 확인해야 합니다. 이때는 `train_valid_cf_ratio`를 보고 Strict lambda를 조금 키운 ablation을 추가합니다.
+
+```bash
+python validity_gated_exp/run_exp.py \
+  --exp Strict-Gated \
+  --lambda 0.15 \
+  --seeds 42 123 456 \
+  --epochs 3 \
+  --batch_size 64 \
+  --num_workers 2 \
+  --result_path validity_gated_exp/results_strict_lam015.json \
+  2>&1 | tee train_strict_lam015.log
+```
+
+## 6. Compare Results
+
+여러 JSON을 한 번에 비교합니다.
+
+```bash
+python validity_gated_exp/compare_results.py \
+  validity_gated_exp/results_core.json
+```
+
+파일이 나뉘어 있으면:
+
+```bash
+python validity_gated_exp/compare_results.py \
+  validity_gated_exp/results_naive.json \
+  validity_gated_exp/results_core_followup.json \
+  validity_gated_exp/results_strict_lam015.json
+```
+
+## 7. Hardware Notes
 
 - CUDA GPU: start with `--batch_size 64`. If memory is enough, try 128.
 - Mac MPS or CPU: use `--batch_size 8` or `16`, and smoke test first.
 - `--num_workers 0` is safer in notebooks. If stable, use `2` or `4`.
 - `2>&1 | tee file.log` means stderr와 stdout을 합쳐서 화면과 로그 파일에 동시에 저장한다는 뜻입니다.
 
-## 7. Metrics To Trust
+## 8. Metrics To Trust
 
 주요 지표는 아래 순서로 해석합니다.
 

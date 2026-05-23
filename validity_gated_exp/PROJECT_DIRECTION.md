@@ -2,25 +2,26 @@
 
 ## Recommended Claim
 
-한국어 혐오 표현 탐지에서 identity term swap을 consistency regularization에 쓰되, 모든 swap을 학습 신호로 넣지 않고 validity gate를 통과한 counterfactual pair만 regularization에 사용한다.
+한국어 혐오 표현 탐지에서 identity term swap을 consistency regularization에 쓰되, 모든 swap을 학습 신호로 넣는 방법과 validity gate를 통과한 counterfactual pair만 regularization에 사용하는 방법을 비교한다.
 
 핵심 주장은 다음 형태가 가장 안전하다.
 
-1. Naive identity swap은 invalid counterfactual을 많이 포함하므로 공정성 개선 신호가 noisy하다.
-2. Validity-gated CCR은 hate detection 성능을 크게 해치지 않으면서 counterfactual pair-level robustness를 개선할 수 있다.
-3. 한국어에서는 조사, 형태소 경계, 문화/사건 특정 맥락 때문에 English-style counterfactual augmentation을 그대로 쓰기 어렵고, 이 점이 방법론적 novelty다.
+1. Identity swap CCR은 hate detection 성능을 크게 해치지 않으면서 counterfactual consistency를 개선할 수 있다.
+2. Ungated/Naive swap은 더 강한 invariance를 줄 수 있지만 invalid counterfactual도 학습 신호로 쓸 위험이 있다.
+3. Validity-gated CCR은 consistency gain과 counterfactual validity 사이의 trade-off를 분석하는 방법이다.
+4. 한국어에서는 조사, 형태소 경계, 문화/사건 특정 맥락 때문에 English-style counterfactual augmentation을 그대로 쓰기 어렵고, 이 점이 방법론적 novelty다.
 
 ## Why This Is Better Than Evaluation-Only Pair Testing
 
 단순히 synthetic/test pair를 만들고 KOLD나 K-HATERS 모델을 평가하는 방식은 결과 분석에 가깝다. 반면 이 방향은 모델 학습 목적함수에 개입한다.
 
 - Baseline: K-HATERS fine-tuning
-- Naive Swap: 모든 identity swap에 KL consistency 적용
+- Naive Swap: 형태소 경계와 단일 identity 제약은 유지하되, validity gate 없이 모든 generated swap에 KL consistency 적용
 - Validity-Gated: same-category/grammar/semantic gate 통과 pair만 적용
 - Strict-Gated: 비교 구문, 사건 목적어, age contradiction까지 제한한 conservative gate
 - Masking Cons Reg: identity masking과 비교하는 sanity baseline
 
-따라서 보고서에서는 "새 평가셋 만들기"보다 "invalid counterfactual을 걸러 regularization signal quality를 높이는 방법"으로 쓰는 편이 좋다.
+따라서 보고서에서는 "새 평가셋 만들기"보다 "counterfactual regularization에서 invariance strength와 validity filtering의 trade-off를 분석하는 방법"으로 쓰는 편이 좋다.
 
 ## Critical Risks
 
@@ -44,6 +45,10 @@
 
    이 baseline에는 새로 추가된 `pair_accuracy`, `strict_pair_accuracy`가 없다. 논문용 결과는 `results_core.json`처럼 새 파일에 Baseline부터 전부 다시 실행해야 한다.
 
+6. Naive Swap이 Strict-Gated보다 잘 나올 수 있다.
+
+   이 경우 프로젝트가 실패한 것이 아니다. Naive가 더 많은 CF pair를 학습하기 때문에 stronger regularization을 받는다는 해석이 가능하다. 새 코드에서는 `train_valid_cf_ratio`, `pair_count`, `strict_pair_count`를 저장하므로, Strict가 지면 "gate가 너무 보수적이어서 useful signal을 줄인다"는 분석으로 전환한다.
+
 ## Minimum Experiment Set
 
 보고서용 최소 실험:
@@ -57,6 +62,12 @@ python validity_gated_exp/run_exp.py \
   --num_workers 2 \
   --result_path validity_gated_exp/results_core.json \
   2>&1 | tee train_core.log
+```
+
+결과 비교:
+
+```bash
+python validity_gated_exp/compare_results.py validity_gated_exp/results_core.json
 ```
 
 추가 ablation:
@@ -110,5 +121,6 @@ Construction analysis table:
 
 - Best outcome: Strict-Gated keeps Macro-F1 within roughly 1 point of Baseline and improves Strict Pair Acc over Baseline/Naive Swap.
 - Acceptable outcome: Strict-Gated improves pair metrics but slightly lowers F1; frame as robustness-accuracy tradeoff.
-- Bad outcome: Naive Swap beats Strict-Gated on both F1 and Strict Pair Acc. Then the current gate is too conservative or wrong; analyze valid pair coverage and category distribution.
+- Trade-off outcome: Naive Swap beats Strict-Gated on Strict Pair Acc or Flip Rate, while Strict-Gated has comparable F1 or lower Prob Gap. Then report an invariance-validity tradeoff.
+- Bad outcome: Naive Swap beats Strict-Gated on every metric. Then the current gate is too conservative or wrong; analyze valid pair coverage and category distribution and try a middle-strength gate or larger `--lambda` for Strict-Gated.
 - Do not claim fairness improvement from lower flip rate alone.

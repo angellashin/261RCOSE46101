@@ -27,7 +27,7 @@ from tqdm import tqdm
 import warnings; warnings.filterwarnings('ignore')
 
 from dataset import (
-    SWAP_PAIRS_BY_CAT, SWAP_MAP, SWAP_KEYS, kiwi,
+    GATE_VERSION, SWAP_PAIRS_BY_CAT, SWAP_MAP, SWAP_KEYS, kiwi,
     find_swap, find_swap_naive, make_swap, make_swap_naive,
     compute_validity, compute_validity_strict,
     load_khaters, save_cf_pairs, load_cf_pairs, HatersDataset,
@@ -164,6 +164,7 @@ def eval_fairness(model, test_examples, tokenizer):
     Returns:
       flip_rate, mean_prob_gap, pair_accuracy,
       strict_flip_rate, strict_prob_gap, strict_pair_accuracy,
+      n_pairs, n_strict_pairs,
       fpr_gap (max FPR across target groups - min FPR),
       per_group_fpr dict
     """
@@ -271,6 +272,8 @@ def eval_fairness(model, test_examples, tokenizer):
         strict_flip_rate,
         strict_prob_gap,
         strict_pair_accuracy,
+        len(swap_res),
+        len(strict_res),
         fpr_gap,
         per_group_fpr,
     )
@@ -285,6 +288,8 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
     metrics = {
         'f1': [], 'flip_rate': [], 'prob_gap': [], 'pair_accuracy': [],
         'strict_flip_rate': [], 'strict_prob_gap': [], 'strict_pair_accuracy': [],
+        'pair_count': [], 'strict_pair_count': [],
+        'train_valid_cf_count': [], 'train_valid_cf_ratio': [],
         'fpr_gap': [],
         'epoch_history': [],   # [{seed, epochs: [{ep, val_f1, total_loss, cls_loss, cons_loss}]}]
     }
@@ -307,6 +312,10 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
 
         tr_ds = HatersDataset(train_data, tokenizer, MAX_LEN, mode=mode,
                               cf_lookup=cf_lookup)
+        train_valid_cf_count = sum(bool(it['cf_valid']) for it in tr_ds.items)
+        train_valid_cf_ratio = train_valid_cf_count / len(tr_ds) if len(tr_ds) else 0.0
+        print(f'  train valid CF for CCR: {train_valid_cf_count} / {len(tr_ds)} '
+              f'({100 * train_valid_cf_ratio:.2f}%)')
         tr_dl = DataLoader(tr_ds, batch_size=BATCH_SIZE, shuffle=True,
                            num_workers=NUM_WORKERS, pin_memory=torch.cuda.is_available(),
                            worker_init_fn=worker_init_fn, generator=g)
@@ -343,14 +352,16 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
                                                    mode='none'),
                                      batch_size=BATCH_SIZE, shuffle=False,
                                      num_workers=NUM_WORKERS))
-        flip, lgap, pair_acc, sflip, sgap, strict_pair_acc, fpr_gap, per_grp = eval_fairness(
-            model, test_data, tokenizer
-        )
+        (
+            flip, lgap, pair_acc, sflip, sgap, strict_pair_acc,
+            pair_count, strict_pair_count, fpr_gap, per_grp
+        ) = eval_fairness(model, test_data, tokenizer)
 
         print(f'  test F1={test_f1:.4f}  flip={flip:.4f}  prob_gap={lgap:.4f}  '
               f'pair_acc={pair_acc:.4f}  strict_flip={sflip:.4f}  '
               f'strict_prob_gap={sgap:.4f}  strict_pair_acc={strict_pair_acc:.4f}  '
               f'fpr_gap={fpr_gap:.4f}')
+        print(f'  eval pair counts: all={pair_count}  strict={strict_pair_count}')
         print(f'  per-group FPR: ' +
               '  '.join(f'{k}={v:.3f}' for k, v in sorted(per_grp.items())))
 
@@ -361,6 +372,10 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
         metrics['strict_flip_rate'].append(sflip)
         metrics['strict_prob_gap'].append(sgap)
         metrics['strict_pair_accuracy'].append(strict_pair_acc)
+        metrics['pair_count'].append(pair_count)
+        metrics['strict_pair_count'].append(strict_pair_count)
+        metrics['train_valid_cf_count'].append(train_valid_cf_count)
+        metrics['train_valid_cf_ratio'].append(train_valid_cf_ratio)
         metrics['fpr_gap'].append(fpr_gap)
         metrics['epoch_history'].append({'seed': seed, 'epochs': seed_epochs})
 
@@ -376,6 +391,8 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
     print(f'  Strict Flip Rate ↓ : {_s(metrics["strict_flip_rate"])}')
     print(f'  Strict Prob Gap ↓  : {_s(metrics["strict_prob_gap"])}')
     print(f'  Strict Pair Acc ↑  : {_s(metrics["strict_pair_accuracy"])}')
+    print(f'  Train valid CF     : {_s(metrics["train_valid_cf_ratio"])}')
+    print(f'  Eval pair counts   : all={_s(metrics["pair_count"])}  strict={_s(metrics["strict_pair_count"])}')
     print(f'  FPR Gap ↓          : {_s(metrics["fpr_gap"])}')
     print(f'{"="*60}')
     return metrics
@@ -455,6 +472,7 @@ if __name__ == '__main__':
         strict_v       = compute_validity_strict(text, cf_text, orig_term, swap_term, cat)
         cf_pairs.append({
             'original': text, 'cf': cf_text,
+            'gate_version': GATE_VERSION,
             'orig_term': orig_term, 'swap_term': swap_term,
             'category': cat, 'label': label, 'targets': targets,
             **{f'base_{k}': v for k, v in base_v.items()},
@@ -512,12 +530,13 @@ if __name__ == '__main__':
     # Summary table
     def _fmt(lst): return f'{np.mean(lst):.4f}±{np.std(lst):.4f}' if lst else 'N/A'
     print('\n' + '=' * 110)
-    print(f"  {'Model':<22} {'F1':>14} {'Flip Rate':>14} {'Pair Acc':>14} {'S-Flip Rate':>14} {'S-Pair Acc':>14}")
+    print(f"  {'Model':<22} {'F1':>14} {'Flip Rate':>14} {'Pair Acc':>14} {'S-Flip Rate':>14} {'S-Pair Acc':>14} {'Train CF%':>10}")
     print('=' * 110)
     for name, r in all_results.items():
         print(f"  {name:<22}  {_fmt(r['f1']):>14}  {_fmt(r['flip_rate']):>14}  "
               f"{_fmt(r.get('pair_accuracy', [])):>14}  {_fmt(r['strict_flip_rate']):>14}  "
-              f"{_fmt(r.get('strict_pair_accuracy', [])):>14}")
+              f"{_fmt(r.get('strict_pair_accuracy', [])):>14}  "
+              f"{_fmt(r.get('train_valid_cf_ratio', [])):>10}")
 
     # Paired t-tests: flip rate alone can reward consistently wrong predictions,
     # so also report strict pair accuracy when available.
@@ -563,6 +582,10 @@ if __name__ == '__main__':
             'strict_prob_gap_std': _s(metrics['strict_prob_gap']),
             'strict_pair_accuracy_mean': _m(metrics.get('strict_pair_accuracy', [])),
             'strict_pair_accuracy_std': _s(metrics.get('strict_pair_accuracy', [])),
+            'pair_count_mean': _m(metrics.get('pair_count', [])),
+            'strict_pair_count_mean': _m(metrics.get('strict_pair_count', [])),
+            'train_valid_cf_count_mean': _m(metrics.get('train_valid_cf_count', [])),
+            'train_valid_cf_ratio_mean': _m(metrics.get('train_valid_cf_ratio', [])),
             'fpr_gap_mean': _m(metrics['fpr_gap']), 'fpr_gap_std': _s(metrics['fpr_gap']),
         })
     if rows:

@@ -11,6 +11,8 @@ from kiwipiepy import Kiwi
 import torch
 from torch.utils.data import Dataset
 
+GATE_VERSION = '2026-05-24-strict-context-v2'
+
 # ── Identity swap pairs ────────────────────────────────────────────────────────
 SWAP_PAIRS_BY_CAT: dict[str, list[tuple[str, str]]] = {
     'gender':     [('여성', '남성'), ('여자', '남자'), ('여성들', '남성들'),
@@ -341,6 +343,7 @@ def save_cf_pairs(examples: list, path: str) -> None:
         pairs.append({
             'original':  text,
             'cf':        cf_text,
+            'gate_version': GATE_VERSION,
             'orig_term': orig_term,
             'swap_term': swap_term,
             'category':  cat,
