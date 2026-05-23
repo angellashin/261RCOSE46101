@@ -282,10 +282,10 @@ def compute_validity_strict(
 
 
 # ── K-HATERS 로딩 ─────────────────────────────────────────────────────────────
-HATE_LABELS = {'offensive', 'L1_hate', 'L2_hate'}
+ABUSIVE_LABELS = {'offensive', 'l1_hate', 'l2_hate'}
 
 def to_binary(label: str) -> int:
-    return 1 if label in HATE_LABELS else 0
+    return 1 if label.strip().lower() in ABUSIVE_LABELS else 0
 
 
 def load_khaters(split: str, subset: int = 0, seed: int = 42) -> list:
@@ -331,7 +331,8 @@ def save_cf_pairs(examples: list, path: str) -> None:
         if orig_term is None:
             continue
         cf_text  = make_swap(text, orig_term, swap_term)
-        validity = compute_validity(text, cf_text, orig_term, swap_term, cat)
+        base_v   = compute_validity(text, cf_text, orig_term, swap_term, cat)
+        strict_v = compute_validity_strict(text, cf_text, orig_term, swap_term, cat)
         pairs.append({
             'original':  text,
             'cf':        cf_text,
@@ -340,13 +341,16 @@ def save_cf_pairs(examples: list, path: str) -> None:
             'category':  cat,
             'label':     label,
             'targets':   targets,
-            **validity,
+            **{f'base_{k}': v for k, v in base_v.items()},
+            **{f'strict_{k}': v for k, v in strict_v.items()},
         })
     with open(path, 'w', encoding='utf-8') as f:
         for p in pairs:
             f.write(json.dumps(p, ensure_ascii=False) + '\n')
-    n_valid = sum(1 for p in pairs if p['use_for_ccr'])
-    print(f'CF pairs saved → {path}  (total={len(pairs)}, use_for_ccr={n_valid})')
+    n_base   = sum(1 for p in pairs if p['base_use_for_ccr'])
+    n_strict = sum(1 for p in pairs if p['strict_use_for_ccr'])
+    print(f'CF pairs saved → {path}  '
+          f'(total={len(pairs)}, base_valid={n_base}, strict_valid={n_strict})')
 
 
 # ── Dataset ───────────────────────────────────────────────────────────────────

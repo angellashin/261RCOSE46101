@@ -1,12 +1,13 @@
 """
 Validity-Gated Counterfactual Consistency Regularization
-for Fair Korean Hate Speech Detection
+for Korean Abusive/Offensive Language Detection
 
 Ablation 4종:
   Baseline          : L_cls only
   Masking Cons Reg  : L_cls + KL(orig || [MASK])
   Naive Swap        : L_cls + KL(orig || swap, no gate)
   Validity-Gated    : L_cls + KL(orig || swap, same-category gate)
+  Strict-Gated      : L_cls + KL(orig || swap, strict validity gate)
 """
 
 import os, sys, json, random, gc
@@ -46,7 +47,7 @@ SUBSET      = 0      # 0 = full 172K
 BASE_DIR = os.environ.get('EXP_DIR', BASE_DIR)
 
 CKPT_DIR    = os.path.join(BASE_DIR, 'checkpoints')
-RESULT_PATH = os.path.join(BASE_DIR, 'results.json')
+RESULT_PATH = os.path.join(BASE_DIR, 'results_final.json')
 os.makedirs(CKPT_DIR, exist_ok=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -143,7 +144,7 @@ def eval_f1(model, loader) -> float:
 def eval_fairness(model, test_examples, tokenizer):
     """
     Returns:
-      flip_rate, mean_logit_gap,
+      flip_rate, mean_prob_gap,
       fpr_gap (max FPR across target groups - min FPR),
       per_group_fpr dict
     """
@@ -191,12 +192,23 @@ def eval_fairness(model, test_examples, tokenizer):
             'cat': cat,
         })
 
-    # Flip rate & logit gap (only for swappable pairs)
+    # Flip rate & prob gap (all swappable pairs)
     swap_res = [r for r in results if r['cf_pred'] is not None]
     flip_rate = (sum(r['pred'] != r['cf_pred'] for r in swap_res) / len(swap_res)
                  if swap_res else 0.0)
-    mean_logit_gap = (sum(abs(r['prob'] - r['cf_prob']) for r in swap_res) / len(swap_res)
-                      if swap_res else 0.0)
+    mean_prob_gap = (sum(abs(r['prob'] - r['cf_prob']) for r in swap_res) / len(swap_res)
+                     if swap_res else 0.0)
+
+    # Strict-valid subset: label-preserving pair만
+    strict_res = [
+        r for r, m in zip(results, meta)
+        if m[5] is not None and compute_validity_strict(
+            m[0], m[5], m[2], m[3], m[4])['use_for_ccr']
+    ]
+    strict_flip_rate = (sum(r['pred'] != r['cf_pred'] for r in strict_res) / len(strict_res)
+                        if strict_res else 0.0)
+    strict_prob_gap  = (sum(abs(r['prob'] - r['cf_prob']) for r in strict_res) / len(strict_res)
+                        if strict_res else 0.0)
 
     # Per-CATEGORY FPR using lexicon-based group assignment
     # K-HATERS의 target_label은 label=1에만 존재 → FPR 계산에 사용 불가
@@ -222,7 +234,7 @@ def eval_fairness(model, test_examples, tokenizer):
     fpr_vals = list(identity_fprs.values())
     fpr_gap  = (max(fpr_vals) - min(fpr_vals)) if len(fpr_vals) >= 2 else 0.0
 
-    return flip_rate, mean_logit_gap, fpr_gap, per_group_fpr
+    return flip_rate, mean_prob_gap, strict_flip_rate, strict_prob_gap, fpr_gap, per_group_fpr
 
 
 # ── Experiment runner ─────────────────────────────────────────────────────────
@@ -232,7 +244,9 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
         seeds = SEEDS
 
     metrics = {
-        'f1': [], 'flip_rate': [], 'logit_gap': [], 'fpr_gap': [],
+        'f1': [], 'flip_rate': [], 'prob_gap': [],
+        'strict_flip_rate': [], 'strict_prob_gap': [],
+        'fpr_gap': [],
         'epoch_history': [],   # [{seed, epochs: [{ep, val_f1, total_loss, cls_loss, cons_loss}]}]
     }
 
@@ -281,16 +295,18 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
                                                    mode='none'),
                                      batch_size=BATCH_SIZE, shuffle=False,
                                      num_workers=4))
-        flip, lgap, fpr_gap, per_grp = eval_fairness(model, test_data, tokenizer)
+        flip, lgap, sflip, sgap, fpr_gap, per_grp = eval_fairness(model, test_data, tokenizer)
 
-        print(f'  test F1={test_f1:.4f}  flip={flip:.4f}  '
-              f'logit_gap={lgap:.4f}  fpr_gap={fpr_gap:.4f}')
+        print(f'  test F1={test_f1:.4f}  flip={flip:.4f}  prob_gap={lgap:.4f}  '
+              f'strict_flip={sflip:.4f}  strict_prob_gap={sgap:.4f}  fpr_gap={fpr_gap:.4f}')
         print(f'  per-group FPR: ' +
               '  '.join(f'{k}={v:.3f}' for k, v in sorted(per_grp.items())))
 
         metrics['f1'].append(test_f1)
         metrics['flip_rate'].append(flip)
-        metrics['logit_gap'].append(lgap)
+        metrics['prob_gap'].append(lgap)
+        metrics['strict_flip_rate'].append(sflip)
+        metrics['strict_prob_gap'].append(sgap)
         metrics['fpr_gap'].append(fpr_gap)
         metrics['epoch_history'].append({'seed': seed, 'epochs': seed_epochs})
 
@@ -299,10 +315,12 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
     def _s(lst): return f'{np.mean(lst):.4f}±{np.std(lst):.4f}' if lst else 'N/A'
     print(f'\n{"="*60}')
     print(f'  [{tag}]  {len(seeds)}-seed summary')
-    print(f'  Test Macro-F1  : {_s(metrics["f1"])}')
-    print(f'  Flip Rate ↓    : {_s(metrics["flip_rate"])}')
-    print(f'  Logit Gap ↓    : {_s(metrics["logit_gap"])}')
-    print(f'  FPR Gap ↓      : {_s(metrics["fpr_gap"])}')
+    print(f'  Test Macro-F1      : {_s(metrics["f1"])}')
+    print(f'  Flip Rate ↓        : {_s(metrics["flip_rate"])}')
+    print(f'  Prob Gap ↓         : {_s(metrics["prob_gap"])}')
+    print(f'  Strict Flip Rate ↓ : {_s(metrics["strict_flip_rate"])}')
+    print(f'  Strict Prob Gap ↓  : {_s(metrics["strict_prob_gap"])}')
+    print(f'  FPR Gap ↓          : {_s(metrics["fpr_gap"])}')
     print(f'{"="*60}')
     return metrics
 
@@ -339,20 +357,26 @@ if __name__ == '__main__':
         if orig_term is None:
             continue
         cat_cnt[cat] += 1
-        cf_text  = make_swap(text, orig_term, swap_term)
-        validity = compute_validity(text, cf_text, orig_term, swap_term, cat)
-        cf_pairs.append({'original': text, 'cf': cf_text,
-                         'orig_term': orig_term, 'swap_term': swap_term,
-                         'category': cat, 'label': label, 'targets': targets,
-                         **validity})
+        cf_text        = make_swap(text, orig_term, swap_term)
+        base_v         = compute_validity(text, cf_text, orig_term, swap_term, cat)
+        strict_v       = compute_validity_strict(text, cf_text, orig_term, swap_term, cat)
+        cf_pairs.append({
+            'original': text, 'cf': cf_text,
+            'orig_term': orig_term, 'swap_term': swap_term,
+            'category': cat, 'label': label, 'targets': targets,
+            **{f'base_{k}': v for k, v in base_v.items()},
+            **{f'strict_{k}': v for k, v in strict_v.items()},
+        })
     with open(cf_path, 'w', encoding='utf-8') as f:
         for p in cf_pairs:
             f.write(json.dumps(p, ensure_ascii=False) + '\n')
-    n_swap  = len(cf_pairs)
-    n_valid = sum(1 for p in cf_pairs if p['use_for_ccr'])
+    n_swap        = len(cf_pairs)
+    n_base_valid  = sum(1 for p in cf_pairs if p['base_use_for_ccr'])
+    n_strict_valid= sum(1 for p in cf_pairs if p['strict_use_for_ccr'])
     print(f'swappable train samples: {n_swap} / {len(raw_train)} '
           f'({100*n_swap/len(raw_train):.1f}%)')
-    print(f'CF pairs saved → {cf_path}  (total={n_swap}, use_for_ccr={n_valid})')
+    print(f'CF pairs saved → {cf_path}  '
+          f'(total={n_swap}, base_valid={n_base_valid}, strict_valid={n_strict_valid})')
     print('swap category distribution (train):')
     for cat, cnt in cat_cnt.most_common():
         print(f'  {cat}: {cnt}')
@@ -378,37 +402,41 @@ if __name__ == '__main__':
     lam_targets = [0.05, 0.2]
     if args.exp:
         run_ablations = [e for e in ABLATIONS if e['tag'] in args.exp]
-        lam_targets   = [l for l in lam_targets if f'VG_lam={l}' in args.exp]
+        lam_targets   = [l for l in lam_targets if f'Strict_lam={l}' in args.exp]
 
     all_results = {}
     for exp in run_ablations:
         print(f"\n{'#'*60}\n  Experiment: {exp['tag']}\n{'#'*60}")
         all_results[exp['tag']] = run_experiment(**exp, cf_lookup=cf_lookup)
 
-    # λ sensitivity (Validity-Gated; lam=0.1 is already in ABLATIONS)
+    # λ sensitivity (Strict-Gated; lam=0.1 is already in ABLATIONS)
     for lam in lam_targets:
-        key = f'VG_lam={lam}'
+        key = f'Strict_lam={lam}'
         all_results[key] = run_experiment(
-            tag=key, mode='gated', use_cons=True, lam=lam, n_epochs=3,
+            tag=key, mode='strict', use_cons=True, lam=lam, n_epochs=3,
             cf_lookup=cf_lookup)
 
     # Summary table
     def _fmt(lst): return f'{np.mean(lst):.4f}±{np.std(lst):.4f}' if lst else 'N/A'
-    print('\n' + '=' * 100)
-    print(f"  {'Model':<22} {'F1':>16} {'Flip Rate':>16} {'Logit Gap':>16} {'FPR Gap':>16}")
-    print('=' * 100)
+    print('\n' + '=' * 110)
+    print(f"  {'Model':<22} {'F1':>14} {'Flip Rate':>14} {'Prob Gap':>14} {'S-Flip Rate':>14} {'S-Prob Gap':>14}")
+    print('=' * 110)
     for name, r in all_results.items():
-        print(f"  {name:<22}  {_fmt(r['f1']):>16}  {_fmt(r['flip_rate']):>16}  "
-              f"{_fmt(r['logit_gap']):>16}  {_fmt(r['fpr_gap']):>16}")
+        print(f"  {name:<22}  {_fmt(r['f1']):>14}  {_fmt(r['flip_rate']):>14}  "
+              f"{_fmt(r['prob_gap']):>14}  {_fmt(r['strict_flip_rate']):>14}  "
+              f"{_fmt(r['strict_prob_gap']):>14}")
 
-    # Paired t-test: Baseline vs Validity-Gated (flip rate)
-    if 'Baseline' in all_results and 'Validity-Gated' in all_results:
-        b = all_results['Baseline']['flip_rate']
-        g = all_results['Validity-Gated']['flip_rate']
-        if len(b) == len(g) and len(b) > 1:
-            t, p = stats.ttest_rel(b, g)
-            print(f'\n  [t-test] Baseline vs Validity-Gated flip_rate  '
-                  f't={t:.4f}  p={p:.4f}  {"*significant*" if p < 0.05 else "n.s."} (α=0.05)')
+    # Paired t-test: Baseline vs Strict-Gated (flip rate)
+    for target in ['Strict-Gated', 'Validity-Gated', 'Naive Swap', 'Masking Cons Reg']:
+        if 'Baseline' in all_results and target in all_results:
+            b = all_results['Baseline']['flip_rate']
+            g = all_results[target]['flip_rate']
+            if len(b) == len(g) and len(b) > 1:
+                t, p = stats.ttest_rel(b, g)
+                print(f'\n  [t-test] Baseline vs {target} flip_rate  '
+                      f't={t:.4f}  p={p:.4f}  {"*significant*" if p < 0.05 else "n.s."} (α=0.05)'
+                      f'  (n={len(b)}, mean±std: {np.mean(b):.4f}±{np.std(b):.4f} → '
+                      f'{np.mean(g):.4f}±{np.std(g):.4f})')
 
     if os.path.exists(RESULT_PATH):
         with open(RESULT_PATH, 'r', encoding='utf-8') as f:
