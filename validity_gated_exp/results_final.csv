@@ -1,0 +1,3 @@
+experiment,f1_mean,f1_std,flip_rate_mean,flip_rate_std,prob_gap_mean,prob_gap_std,strict_flip_mean,strict_flip_std,fpr_gap_mean,fpr_gap_std
+Strict-Gated,0.7936,0.0038,0.0212,0.0089,0.0186,0.0016,0.0237,0.0087,0.4954,0.2446
+Naive Swap,0.7944,0.0031,0.0242,0.0022,0.0184,0.001,0.0246,0.0016,0.6273,0.237
