@@ -30,6 +30,7 @@ PRIMARY_METRICS = [
     ("prob_gap", "ProbGap", "lower"),
     ("strict_prob_gap", "S-ProbGap", "lower"),
     ("fpr_gap", "FPRGap", "lower"),
+    ("fpr_min_group_n", "FPR minN", "higher"),
     ("train_valid_cf_ratio", "TrainCF%", "higher"),
     ("cons_batch_ratio", "ConsBatch%", "higher"),
     ("avg_valid_cf_per_batch", "ValidCF/B", "higher"),
@@ -187,7 +188,7 @@ def print_baseline_deltas(results: dict[str, dict[str, Any]]) -> None:
             continue
         print(f"\n{name}")
         for key, label, direction in PRIMARY_METRICS:
-            if key == "train_valid_cf_ratio":
+            if key in ("train_valid_cf_ratio", "cons_batch_ratio", "avg_valid_cf_per_batch", "fpr_min_group_n"):
                 continue
             b = mean_or_none(base.get(key))
             c = mean_or_none(metrics.get(key))
@@ -200,6 +201,13 @@ def print_interpretation_notes(results: dict[str, dict[str, Any]]) -> None:
     print("- Do not rank methods by flip rate alone; low flip can hide consistently wrong pairs.")
     print("- Prefer Macro-F1 + Strict PairAcc as the main claim when available.")
     print("- TrainCF% explains regularization strength: a stricter gate may lose because it sees fewer CF pairs.")
+    low_fpr_support = [
+        (name, n) for name, metrics in results.items()
+        if (n := mean_or_none(metrics.get("fpr_min_group_n"))) is not None and n < 20
+    ]
+    if low_fpr_support:
+        details = ", ".join(f"{name}=minN {n:.1f}" for name, n in low_fpr_support)
+        print(f"- FPR Gap has small normal-group support ({details}); keep FPR Gap as a secondary metric.")
 
     naive = results.get("Naive Swap")
     strict = results.get("Strict-Gated")
@@ -271,14 +279,15 @@ def print_interpretation_notes(results: dict[str, dict[str, Any]]) -> None:
 def print_markdown_table(results: dict[str, dict[str, Any]]) -> None:
     print("\nMarkdown table")
     print("--------------")
-    print("| Method | Macro-F1 | Pair Acc | Strict Pair Acc | Flip Rate | Strict Flip | Prob Gap | Strict Prob Gap | Train CF% | Cons Batch% |")
-    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    print("| Method | Macro-F1 | Pair Acc | Strict Pair Acc | Flip Rate | Strict Flip | Prob Gap | Strict Prob Gap | FPR Gap | FPR minN | Train CF% | Cons Batch% |")
+    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     for name, metrics in results.items():
         print(
             f"| {name} | {fmt(metrics.get('f1'))} | {fmt(metrics.get('pair_accuracy'))} | "
             f"{fmt(metrics.get('strict_pair_accuracy'))} | {fmt(metrics.get('flip_rate'))} | "
             f"{fmt(metrics.get('strict_flip_rate'))} | {fmt(metrics.get('prob_gap'))} | "
-            f"{fmt(metrics.get('strict_prob_gap'))} | {fmt(metrics.get('train_valid_cf_ratio'), scale=100.0)} | "
+            f"{fmt(metrics.get('strict_prob_gap'))} | {fmt(metrics.get('fpr_gap'))} | "
+            f"{fmt(metrics.get('fpr_min_group_n'))} | {fmt(metrics.get('train_valid_cf_ratio'), scale=100.0)} | "
             f"{fmt(metrics.get('cons_batch_ratio'), scale=100.0)} |"
         )
 

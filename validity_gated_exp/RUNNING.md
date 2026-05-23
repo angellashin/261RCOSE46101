@@ -217,6 +217,7 @@ python validity_gated_exp/compare_results.py \
 
 이 스크립트는 콘솔용 비교표, Baseline 대비 delta, paper claim suggestion, Markdown 표를 같이 출력합니다. 보고서 표 초안은 `Markdown table` 섹션을 가져가면 됩니다.
 `TrainCF%`, `ConsBatch%`, `ValidCF/B`는 Strict가 Naive보다 약하게 나왔을 때 regularization signal coverage 차이를 설명하는 데 씁니다.
+`FPR minN`은 identity category별 FPR을 계산할 때 가장 작은 normal-sample group 크기입니다. 이 값이 작으면 `FPR Gap`은 보조 지표로만 해석합니다.
 
 비교 출력 맨 위의 `Result metadata`와 `Experiment configs`를 먼저 확인합니다.
 
@@ -243,6 +244,7 @@ python validity_gated_exp/compare_results.py \
 3. `Pair Acc`: 전체 swappable pair에서 둘 다 맞히는지.
 4. `Flip Rate` / `Strict Flip Rate`: 예측이 바뀌는 비율. 낮을수록 좋지만, 둘 다 틀려도 낮아질 수 있으므로 단독 주장에는 쓰지 않습니다.
 5. `FPR Gap`: identity category별 false positive 격차. category별 표본 수가 작으면 보조 지표로만 해석합니다.
+6. `FPR minN`: FPR Gap에 들어간 identity group 중 가장 작은 normal sample 수. 작을수록 FPR Gap 해석이 불안정합니다.
 
 보고서의 핵심 claim은 `Macro-F1 유지 + Strict Pair Acc 개선 + invalid counterfactual filtering 근거`로 잡는 것이 가장 안전합니다.
 

@@ -210,7 +210,7 @@ def eval_fairness(model, test_examples, tokenizer):
       strict_flip_rate, strict_prob_gap, strict_pair_accuracy,
       n_pairs, n_strict_pairs,
       fpr_gap (max FPR across target groups - min FPR),
-      per_group_fpr dict
+      per_group_fpr dict, per_group_fpr_detail dict
     """
     model.eval()
 
@@ -300,9 +300,17 @@ def eval_fairness(model, test_examples, tokenizer):
                 group_tn[grp] += 1
 
     per_group_fpr = {}
+    per_group_fpr_detail = {}
     for grp in set(list(group_fp.keys()) + list(group_tn.keys())):
         denom = group_fp[grp] + group_tn[grp]
-        per_group_fpr[grp] = group_fp[grp] / denom if denom else 0.0
+        fpr = group_fp[grp] / denom if denom else 0.0
+        per_group_fpr[grp] = fpr
+        per_group_fpr_detail[grp] = {
+            'fp': group_fp[grp],
+            'tn': group_tn[grp],
+            'normal_n': denom,
+            'fpr': fpr,
+        }
 
     # FPR gap: identity 그룹들 사이의 격차 ('none' 제외)
     identity_fprs = {k: v for k, v in per_group_fpr.items() if k != 'none'}
@@ -320,6 +328,7 @@ def eval_fairness(model, test_examples, tokenizer):
         len(strict_res),
         fpr_gap,
         per_group_fpr,
+        per_group_fpr_detail,
     )
 
 
@@ -339,6 +348,8 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
         'cons_batch_ratio': [], 'avg_valid_cf_per_batch': [],
         'lambda': [], 'effective_lambda': [],
         'fpr_gap': [],
+        'fpr_min_group_n': [],
+        'per_group_fpr_detail': [],
         'config': {
             'tag': tag, 'mode': mode, 'use_cons': use_cons,
             'lambda': lam, 'lambda_strategy': lambda_strategy,
@@ -417,7 +428,7 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
                                      num_workers=NUM_WORKERS))
         (
             flip, lgap, pair_acc, sflip, sgap, strict_pair_acc,
-            pair_count, strict_pair_count, fpr_gap, per_grp
+            pair_count, strict_pair_count, fpr_gap, per_grp, per_grp_detail
         ) = eval_fairness(model, test_data, tokenizer)
 
         print(f'  test F1={test_f1:.4f}  flip={flip:.4f}  prob_gap={lgap:.4f}  '
@@ -426,7 +437,10 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
               f'fpr_gap={fpr_gap:.4f}')
         print(f'  eval pair counts: all={pair_count}  strict={strict_pair_count}')
         print(f'  per-group FPR: ' +
-              '  '.join(f'{k}={v:.3f}' for k, v in sorted(per_grp.items())))
+              '  '.join(
+                  f'{k}={v["fpr"]:.3f}(n={v["normal_n"]})'
+                  for k, v in sorted(per_grp_detail.items())
+              ))
 
         metrics['f1'].append(test_f1)
         metrics['flip_rate'].append(flip)
@@ -445,6 +459,12 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
             metrics['cons_batch_ratio'].append(float(np.mean([e['cons_batch_ratio'] for e in seed_epochs])))
             metrics['avg_valid_cf_per_batch'].append(float(np.mean([e['avg_valid_cf_per_batch'] for e in seed_epochs])))
         metrics['fpr_gap'].append(fpr_gap)
+        identity_group_ns = [
+            v['normal_n'] for k, v in per_grp_detail.items()
+            if k != 'none' and v['normal_n'] > 0
+        ]
+        metrics['fpr_min_group_n'].append(min(identity_group_ns) if identity_group_ns else 0)
+        metrics['per_group_fpr_detail'].append(per_grp_detail)
         metrics['epoch_history'].append({'seed': seed, 'epochs': seed_epochs})
 
         del model; gc.collect(); torch.cuda.empty_cache()
@@ -464,6 +484,7 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
     print(f'  Valid CF / batch   : {_s(metrics["avg_valid_cf_per_batch"])}')
     print(f'  Eval pair counts   : all={_s(metrics["pair_count"])}  strict={_s(metrics["strict_pair_count"])}')
     print(f'  FPR Gap ↓          : {_s(metrics["fpr_gap"])}')
+    print(f'  FPR min group n    : {_s(metrics["fpr_min_group_n"])}')
     print(f'{"="*60}')
     return metrics
 
@@ -709,6 +730,7 @@ if __name__ == '__main__':
             'avg_valid_cf_per_batch_mean': _m(metrics.get('avg_valid_cf_per_batch', [])),
             'lambda_mean': _m(metrics.get('lambda', [])),
             'effective_lambda_mean': _m(metrics.get('effective_lambda', [])),
+            'fpr_min_group_n_mean': _m(metrics.get('fpr_min_group_n', [])),
             'fpr_gap_mean': _m(metrics['fpr_gap']), 'fpr_gap_std': _s(metrics['fpr_gap']),
         })
     if rows:

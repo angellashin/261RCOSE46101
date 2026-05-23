@@ -27,6 +27,7 @@ class CompareResultsTest(unittest.TestCase):
                 "strict_flip_rate": [0.054, 0.052, 0.055],
                 "prob_gap": [0.040, 0.037, 0.042],
                 "strict_prob_gap": [0.042, 0.039, 0.044],
+                "fpr_min_group_n": [7, 7, 7],
             },
             "Naive Swap": {
                 "f1": [0.792, 0.796, 0.788],
@@ -39,6 +40,7 @@ class CompareResultsTest(unittest.TestCase):
                 "train_valid_cf_ratio": [0.045, 0.045, 0.045],
                 "cons_batch_ratio": [0.95, 0.96, 0.94],
                 "avg_valid_cf_per_batch": [2.9, 2.8, 2.9],
+                "fpr_min_group_n": [7, 7, 7],
             },
             "Strict-Gated": {
                 "f1": [0.794, 0.797, 0.790],
@@ -51,6 +53,7 @@ class CompareResultsTest(unittest.TestCase):
                 "train_valid_cf_ratio": [0.035, 0.035, 0.035],
                 "cons_batch_ratio": [0.89, 0.90, 0.88],
                 "avg_valid_cf_per_batch": [2.2, 2.3, 2.2],
+                "fpr_min_group_n": [7, 7, 7],
             },
             "Strict-Matched": {
                 "f1": [0.794, 0.797, 0.790],
@@ -64,6 +67,7 @@ class CompareResultsTest(unittest.TestCase):
                 "cons_batch_ratio": [0.89, 0.90, 0.88],
                 "avg_valid_cf_per_batch": [2.2, 2.3, 2.2],
                 "lambda": [0.129, 0.129, 0.129],
+                "fpr_min_group_n": [7, 7, 7],
             },
         }
 
@@ -77,6 +81,7 @@ class CompareResultsTest(unittest.TestCase):
         self.assertIn("Naive=4.50% vs Strict=3.50%", text)
         self.assertIn("Regularized batches: Naive=95.00% vs Strict=89.00%", text)
         self.assertIn("Valid CF per batch: Naive=2.87 vs Strict=2.23", text)
+        self.assertIn("FPR Gap has small normal-group support", text)
         self.assertIn("Coverage-matched diagnostic", text)
         self.assertIn("Strict-Matched improves Strict PairAcc", text)
 
@@ -97,7 +102,9 @@ class CompareResultsTest(unittest.TestCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             compare_results.print_markdown_table(results)
-        self.assertIn("| Baseline | 0.7900 |", out.getvalue())
+        text = out.getvalue()
+        self.assertIn("| Baseline | 0.7900 |", text)
+        self.assertIn("FPR minN", text)
 
     def test_metadata_warning_for_mixed_commits(self):
         metadata = [
