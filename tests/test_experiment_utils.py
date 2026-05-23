@@ -140,6 +140,16 @@ class ExperimentUtilsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             experiment_utils.parse_strict_lambda_tags(["Strict_lam=0"])
 
+    def test_unknown_experiment_tags_allows_known_and_strict_lambda(self):
+        unknown = experiment_utils.unknown_experiment_tags(
+            ["Baseline", "Strict_lam=0.15", "Typo"],
+            {"Baseline", "Naive Swap"},
+        )
+        self.assertEqual(unknown, ["Typo"])
+
+    def test_unknown_experiment_tags_allows_empty_request(self):
+        self.assertEqual(experiment_utils.unknown_experiment_tags(None, {"Baseline"}), [])
+
 
 if __name__ == "__main__":
     unittest.main()

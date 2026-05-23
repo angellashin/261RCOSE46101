@@ -111,3 +111,13 @@ def parse_strict_lambda_tags(exp_tags: list[str] | None) -> list[float]:
             values.append(value)
             seen.add(value)
     return values
+
+
+def unknown_experiment_tags(exp_tags: list[str] | None, known_tags: set[str]) -> list[str]:
+    """Return requested --exp tags that are neither known ablations nor Strict_lam values."""
+    if not exp_tags:
+        return []
+    return [
+        tag for tag in exp_tags
+        if tag not in known_tags and not tag.startswith("Strict_lam=")
+    ]

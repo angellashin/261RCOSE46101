@@ -37,6 +37,7 @@ from experiment_utils import (
     coverage_matched_lambda,
     merge_result_maps,
     parse_strict_lambda_tags,
+    unknown_experiment_tags,
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -654,9 +655,20 @@ if __name__ == '__main__':
 
     # --exp 인자로 특정 실험만 선택
     run_ablations = ABLATIONS
+    known_tags = {e['tag'] for e in ABLATIONS}
+    unknown_tags = unknown_experiment_tags(args.exp, known_tags)
+    if unknown_tags:
+        valid = sorted(known_tags) + ['Strict_lam=<positive_float>']
+        raise SystemExit(
+            f"Unknown --exp tag(s): {unknown_tags}. "
+            f"Valid choices: {valid}"
+        )
     lam_targets = parse_strict_lambda_tags(args.exp)
     if args.exp:
         run_ablations = [e for e in ABLATIONS if e['tag'] in args.exp]
+        if not run_ablations and not lam_targets:
+            valid = sorted(known_tags) + ['Strict_lam=<positive_float>']
+            raise SystemExit(f"No experiments selected. Valid choices: {valid}")
 
     all_results = {}
     reported_renames = set()
