@@ -87,6 +87,20 @@ def git_commit() -> str:
     except Exception:
         return 'unknown'
 
+
+def git_dirty() -> bool:
+    repo_root = os.path.abspath(os.path.join(SCRIPT_DIR, os.pardir))
+    try:
+        out = subprocess.check_output(
+            ['git', 'status', '--porcelain'],
+            cwd=repo_root,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        return bool(out.strip())
+    except Exception:
+        return False
+
 # ── Seed ─────────────────────────────────────────────────────────────────────
 def set_seed(seed: int):
     random.seed(seed)
@@ -327,6 +341,7 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
             'model': MODEL_NAME, 'max_len': MAX_LEN, 'batch_size': BATCH_SIZE,
             'lr': LR, 'weight_decay': WEIGHT_DECAY,
             'gate_version': GATE_VERSION, 'git_commit': git_commit(),
+            'git_dirty': git_dirty(),
         },
         'epoch_history': [],   # [{seed, epochs: [{ep, val_f1, total_loss, cls_loss, cons_loss}]}]
     }
@@ -494,7 +509,8 @@ if __name__ == '__main__':
         SEEDS = args.seeds
 
     print(f'Output dir: {BASE_DIR}')
-    print(f'Git commit: {git_commit()}  gate_version={GATE_VERSION}')
+    dirty_suffix = ' (dirty)' if git_dirty() else ''
+    print(f'Git commit: {git_commit()}{dirty_suffix}  gate_version={GATE_VERSION}')
     print(f'Batch size: {BATCH_SIZE}  epochs={EPOCHS}  lr={LR}  lambda={LAMBDA}')
     print(f'num_workers={NUM_WORKERS}  subset={SUBSET}')
 
@@ -580,6 +596,7 @@ if __name__ == '__main__':
 
     run_meta = {
         'git_commit': git_commit(),
+        'git_dirty': git_dirty(),
         'gate_version': GATE_VERSION,
         'model': MODEL_NAME,
         'max_len': MAX_LEN,

@@ -199,6 +199,13 @@ python validity_gated_exp/compare_results.py \
 이 스크립트는 콘솔용 비교표, Baseline 대비 delta, paper claim suggestion, Markdown 표를 같이 출력합니다. 보고서 표 초안은 `Markdown table` 섹션을 가져가면 됩니다.
 `TrainCF%`, `ConsBatch%`, `ValidCF/B`는 Strict가 Naive보다 약하게 나왔을 때 regularization signal coverage 차이를 설명하는 데 씁니다.
 
+비교 출력 맨 위의 `Result metadata`와 `Experiment configs`를 먼저 확인합니다.
+
+- `missing _meta` 또는 `missing per-experiment config`가 뜨는 old result는 final table에 섞지 않습니다.
+- `mix different git_commit`, `gate_version`, `model`, `max_len` 경고가 뜨면 같은 표에 직접 비교하지 않습니다.
+- `dirty=True`가 보이면 uncommitted local code로 돌린 결과이므로, 보고서용 결과로 쓰기 전에 commit된 상태에서 다시 실행합니다.
+- lambda follow-up은 가능하면 별도 `--result_path`에 저장하고, `compare_results.py`로 여러 JSON을 함께 읽습니다.
+
 ## 7. Hardware Notes
 
 - CUDA GPU: start with `--batch_size 64`. If memory is enough, try 128.
@@ -217,3 +224,5 @@ python validity_gated_exp/compare_results.py \
 5. `FPR Gap`: identity category별 false positive 격차. category별 표본 수가 작으면 보조 지표로만 해석합니다.
 
 보고서의 핵심 claim은 `Macro-F1 유지 + Strict Pair Acc 개선 + invalid counterfactual filtering 근거`로 잡는 것이 가장 안전합니다.
+
+Strict-Gated가 Naive Swap보다 항상 좋아진다는 보장은 없습니다. Naive가 이기면 실패로 처리하지 말고, `TrainCF%`, `ConsBatch%`, `ValidCF/B`, strict rejection breakdown을 근거로 "strong invariance vs validity filtering" trade-off로 해석합니다.

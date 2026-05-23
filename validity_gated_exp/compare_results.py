@@ -52,7 +52,7 @@ def load_results_with_metadata(paths: list[Path]) -> tuple[dict[str, dict[str, A
             metadata.append({"path": str(path), "missing_meta": True})
         for name, metrics in data.items():
             if isinstance(metrics, dict) and "f1" in metrics:
-                merged[name] = metrics
+                merged[name] = {**metrics, "_source_path": str(path)}
     return merged, metadata
 
 
@@ -119,6 +119,35 @@ def print_metadata_warnings(metadata: list[dict[str, Any]]) -> None:
         vals.discard(None)
         if len(vals) > 1:
             print(f"WARNING: result files mix different {key} values: {sorted(vals)}")
+    dirty = [m["path"] for m in metadata if m.get("git_dirty")]
+    if dirty:
+        print(f"WARNING: result files were produced from dirty git state: {dirty}")
+
+
+def print_experiment_config_warnings(results: dict[str, dict[str, Any]]) -> None:
+    print("\nExperiment configs")
+    print("------------------")
+    configs: list[tuple[str, dict[str, Any]]] = []
+    for name, metrics in results.items():
+        config = metrics.get("config")
+        if not isinstance(config, dict):
+            print(f"- {name}: missing per-experiment config (likely old result)")
+            continue
+        configs.append((name, config))
+        print(
+            f"- {name}: mode={config.get('mode')} lambda={config.get('lambda')} "
+            f"commit={config.get('git_commit')} dirty={config.get('git_dirty')} "
+            f"gate={config.get('gate_version')} model={config.get('model')}"
+        )
+
+    for key in ("git_commit", "gate_version", "model", "max_len", "epochs", "batch_size", "lr"):
+        vals = {c.get(key) for _, c in configs}
+        vals.discard(None)
+        if len(vals) > 1:
+            print(f"WARNING: experiments mix different {key} values: {sorted(vals)}")
+    dirty_methods = [name for name, config in configs if config.get("git_dirty")]
+    if dirty_methods:
+        print(f"WARNING: experiments were run from dirty git state: {dirty_methods}")
 
 
 def print_baseline_deltas(results: dict[str, dict[str, Any]]) -> None:
@@ -217,6 +246,7 @@ def main() -> None:
     if not results:
         raise SystemExit("No valid experiment results found.")
     print_metadata_warnings(metadata)
+    print_experiment_config_warnings(results)
     print()
     print_table(results)
     print_baseline_deltas(results)

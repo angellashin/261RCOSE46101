@@ -92,6 +92,38 @@ class CompareResultsTest(unittest.TestCase):
             compare_results.print_metadata_warnings(metadata)
         self.assertIn("mix different git_commit", out.getvalue())
 
+    def test_experiment_config_warning_for_mixed_commits_and_dirty_state(self):
+        results = {
+            "Naive Swap": {
+                "f1": [0.79],
+                "config": {
+                    "mode": "swap",
+                    "lambda": 0.1,
+                    "git_commit": "aaa",
+                    "git_dirty": False,
+                    "gate_version": "v1",
+                    "model": "m",
+                },
+            },
+            "Strict-Gated": {
+                "f1": [0.79],
+                "config": {
+                    "mode": "strict",
+                    "lambda": 0.2,
+                    "git_commit": "bbb",
+                    "git_dirty": True,
+                    "gate_version": "v1",
+                    "model": "m",
+                },
+            },
+        }
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            compare_results.print_experiment_config_warnings(results)
+        text = out.getvalue()
+        self.assertIn("experiments mix different git_commit", text)
+        self.assertIn("experiments were run from dirty git state", text)
+
 
 if __name__ == "__main__":
     unittest.main()
