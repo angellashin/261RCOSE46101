@@ -32,6 +32,7 @@ from dataset import (
     compute_validity, compute_validity_strict,
     load_khaters, save_cf_pairs, load_cf_pairs, HatersDataset,
 )
+from experiment_utils import coverage_matched_lambda
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +44,7 @@ EPOCHS      = 3
 LR          = 3e-5
 WEIGHT_DECAY= 0.01
 LAMBDA      = 0.1
+MAX_MATCHED_LAMBDA = 0.3
 SEEDS       = [42, 123, 456]
 SUBSET      = 0      # 0 = full 172K
 NUM_WORKERS = 4
@@ -323,7 +325,9 @@ def eval_fairness(model, test_examples, tokenizer):
 
 # ── Experiment runner ─────────────────────────────────────────────────────────
 def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
-                   seeds=None, n_epochs: int = EPOCHS, cf_lookup: dict | None = None):
+                   seeds=None, n_epochs: int = EPOCHS,
+                   cf_lookup: dict | None = None,
+                   lambda_strategy: str = 'fixed'):
     if seeds is None:
         seeds = SEEDS
 
@@ -337,7 +341,8 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
         'fpr_gap': [],
         'config': {
             'tag': tag, 'mode': mode, 'use_cons': use_cons,
-            'lambda': lam, 'epochs': n_epochs,
+            'lambda': lam, 'lambda_strategy': lambda_strategy,
+            'epochs': n_epochs,
             'model': MODEL_NAME, 'max_len': MAX_LEN, 'batch_size': BATCH_SIZE,
             'lr': LR, 'weight_decay': WEIGHT_DECAY,
             'gate_version': GATE_VERSION, 'git_commit': git_commit(),
@@ -352,7 +357,7 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
                        num_workers=NUM_WORKERS, pin_memory=torch.cuda.is_available())
 
     for seed in seeds:
-        print(f'\n[{tag}] seed={seed}  lam={lam}')
+        print(f'\n[{tag}] seed={seed}  lam={lam}  strategy={lambda_strategy}')
         set_seed(seed)
 
         def worker_init_fn(worker_id):
@@ -555,6 +560,12 @@ if __name__ == '__main__':
           f'({100*n_swap/len(raw_train):.1f}%)')
     print(f'CF pairs saved → {cf_path}  '
           f'(total={n_swap}, base_valid={n_base_valid}, strict_valid={n_strict_valid})')
+    strict_matched_lam = coverage_matched_lambda(
+        LAMBDA, n_swap, n_strict_valid, max_lambda=MAX_MATCHED_LAMBDA
+    )
+    print(f'Strict-Matched lambda: {strict_matched_lam:.4f} '
+          f'(base={LAMBDA}, cap={MAX_MATCHED_LAMBDA}, '
+          f'reference=Naive valid CF {n_swap}, target=Strict valid CF {n_strict_valid})')
     print('swap category distribution (train):')
     for cat, cnt in cat_cnt.most_common():
         print(f'  {cat}: {cnt}')
@@ -573,6 +584,8 @@ if __name__ == '__main__':
         dict(tag='Naive Swap',      mode='swap',   use_cons=True,  lam=LAMBDA),
         dict(tag='Validity-Gated',  mode='gated',  use_cons=True,  lam=LAMBDA),
         dict(tag='Strict-Gated',    mode='strict', use_cons=True,  lam=LAMBDA),
+        dict(tag='Strict-Matched',  mode='strict', use_cons=True,
+             lam=strict_matched_lam, lambda_strategy='coverage_matched_to_naive'),
     ]
 
     # --exp 인자로 특정 실험만 선택
@@ -636,7 +649,7 @@ if __name__ == '__main__':
 
     # Paired t-tests: flip rate alone can reward consistently wrong predictions,
     # so also report strict pair accuracy when available.
-    for target in ['Strict-Gated', 'Validity-Gated', 'Naive Swap', 'Masking Cons Reg']:
+    for target in ['Strict-Gated', 'Strict-Matched', 'Validity-Gated', 'Naive Swap', 'Masking Cons Reg']:
         if 'Baseline' in all_results and target in all_results:
             for metric_name in ['flip_rate', 'strict_pair_accuracy']:
                 b = all_results['Baseline'].get(metric_name, [])
@@ -692,6 +705,7 @@ if __name__ == '__main__':
             'train_valid_cf_ratio_mean': _m(metrics.get('train_valid_cf_ratio', [])),
             'cons_batch_ratio_mean': _m(metrics.get('cons_batch_ratio', [])),
             'avg_valid_cf_per_batch_mean': _m(metrics.get('avg_valid_cf_per_batch', [])),
+            'lambda_mean': _m(metrics.get('lambda', [])),
             'effective_lambda_mean': _m(metrics.get('effective_lambda', [])),
             'fpr_gap_mean': _m(metrics['fpr_gap']), 'fpr_gap_std': _s(metrics['fpr_gap']),
         })

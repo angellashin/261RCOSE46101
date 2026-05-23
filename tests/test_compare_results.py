@@ -50,6 +50,19 @@ class CompareResultsTest(unittest.TestCase):
                 "cons_batch_ratio": [0.89, 0.90, 0.88],
                 "avg_valid_cf_per_batch": [2.2, 2.3, 2.2],
             },
+            "Strict-Matched": {
+                "f1": [0.794, 0.797, 0.790],
+                "pair_accuracy": [0.824, 0.826, 0.821],
+                "strict_pair_accuracy": [0.829, 0.831, 0.826],
+                "flip_rate": [0.019, 0.020, 0.018],
+                "strict_flip_rate": [0.021, 0.022, 0.020],
+                "prob_gap": [0.018, 0.018, 0.019],
+                "strict_prob_gap": [0.017, 0.017, 0.018],
+                "train_valid_cf_ratio": [0.035, 0.035, 0.035],
+                "cons_batch_ratio": [0.89, 0.90, 0.88],
+                "avg_valid_cf_per_batch": [2.2, 2.3, 2.2],
+                "lambda": [0.129, 0.129, 0.129],
+            },
         }
 
         out = io.StringIO()
@@ -62,6 +75,8 @@ class CompareResultsTest(unittest.TestCase):
         self.assertIn("Naive=4.50% vs Strict=3.50%", text)
         self.assertIn("Regularized batches: Naive=95.00% vs Strict=89.00%", text)
         self.assertIn("Valid CF per batch: Naive=2.87 vs Strict=2.23", text)
+        self.assertIn("Coverage-matched diagnostic", text)
+        self.assertIn("Strict-Matched improves Strict PairAcc", text)
 
     def test_loading_and_markdown_table_from_json(self):
         payload = {

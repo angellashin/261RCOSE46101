@@ -51,6 +51,7 @@ Implementation note: consistency KL은 원문을 다시 forward하지 않고 cla
 
    이 경우 프로젝트가 실패한 것이 아니다. Naive가 더 많은 CF pair를 학습하기 때문에 stronger regularization을 받는다는 해석이 가능하다. 새 코드에서는 `train_valid_cf_ratio`, `pair_count`, `strict_pair_count`를 저장하므로, Strict가 지면 "gate가 너무 보수적이어서 useful signal을 줄인다"는 분석으로 전환한다.
    추가로 `cons_batch_ratio`와 `avg_valid_cf_per_batch`를 확인해 Strict가 실제로 더 적은 batch/CF에서만 consistency loss를 받았는지 검증한다.
+   이때 `Strict-Matched`를 후속 실험으로 돌린다. 이 ablation은 `lambda = min(0.3, base_lambda * naive_valid_count / strict_valid_count)`로 설정해서 Strict의 낮은 CF coverage를 보정한다. `Strict-Matched`가 개선되면 coverage 부족이 원인이고, 개선되지 않으면 strict gate가 useful signal까지 줄였다는 해석이 가능하다.
 
 ## Minimum Experiment Set
 
@@ -95,6 +96,15 @@ python validity_gated_exp/run_exp.py \
   --num_workers 2 \
   --result_path validity_gated_exp/results_strict_lam02.json \
   2>&1 | tee train_strict_lam02.log
+
+python validity_gated_exp/run_exp.py \
+  --exp Strict-Matched \
+  --seeds 42 123 456 \
+  --epochs 3 \
+  --batch_size 64 \
+  --num_workers 2 \
+  --result_path validity_gated_exp/results_strict_matched.json \
+  2>&1 | tee train_strict_matched.log
 ```
 
 ## Report Table
@@ -108,6 +118,7 @@ Main table:
 | Naive Swap | | | | | | |
 | Validity-Gated | | | | | | |
 | Strict-Gated | | | | | | |
+| Strict-Matched | | | | | | |
 
 Construction analysis table:
 
@@ -125,5 +136,5 @@ Construction analysis table:
 - Best outcome: Strict-Gated keeps Macro-F1 within roughly 1 point of Baseline and improves Strict Pair Acc over Baseline/Naive Swap.
 - Acceptable outcome: Strict-Gated improves pair metrics but slightly lowers F1; frame as robustness-accuracy tradeoff.
 - Trade-off outcome: Naive Swap beats Strict-Gated on Strict Pair Acc or Flip Rate, while Strict-Gated has comparable F1 or lower Prob Gap. Then report an invariance-validity tradeoff.
-- Bad outcome: Naive Swap beats Strict-Gated on every metric. Then the current gate is too conservative or wrong; analyze valid pair coverage and category distribution and try a middle-strength gate or larger `--lambda` for Strict-Gated.
+- Bad outcome: Naive Swap beats Strict-Gated on every metric. Then the current gate is too conservative or wrong; analyze valid pair coverage and category distribution and try `Strict-Matched` or a larger `--lambda` for Strict-Gated.
 - Do not claim fairness improvement from lower flip rate alone.

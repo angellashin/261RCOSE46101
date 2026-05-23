@@ -178,6 +178,25 @@ python validity_gated_exp/run_exp.py \
   2>&1 | tee train_strict_lam015.log
 ```
 
+더 좋은 진단용 follow-up은 `Strict-Matched`입니다. 이 조건은 Strict-valid pair 수가 Naive-valid pair 수보다 적은 만큼 lambda를 자동으로 키워, 낮은 coverage 때문에 Strict가 약해진 것인지 분리합니다. 계산식은 `min(0.3, base_lambda * naive_valid_count / strict_valid_count)`입니다.
+
+```bash
+python validity_gated_exp/run_exp.py \
+  --exp Strict-Matched \
+  --seeds 42 123 456 \
+  --epochs 3 \
+  --batch_size 64 \
+  --num_workers 2 \
+  --result_path validity_gated_exp/results_strict_matched.json \
+  2>&1 | tee train_strict_matched.log
+```
+
+해석:
+
+- `Strict-Matched > Strict-Gated`: Strict의 약점은 gate 자체보다 regularization signal coverage 부족일 가능성이 큽니다.
+- `Strict-Matched <= Strict-Gated`: gate가 useful pair까지 버리거나, strict pair만으로는 hard-label consistency를 올리기 어렵다는 분석이 가능합니다.
+- `Strict-Matched > Naive Swap`: 가장 좋은 결과입니다. validity filtering을 유지하면서 Naive 수준 이상의 consistency를 얻었다고 주장할 수 있습니다.
+
 ## 6. Compare Results
 
 여러 JSON을 한 번에 비교합니다.

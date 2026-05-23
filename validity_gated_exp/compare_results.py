@@ -136,6 +136,7 @@ def print_experiment_config_warnings(results: dict[str, dict[str, Any]]) -> None
         configs.append((name, config))
         print(
             f"- {name}: mode={config.get('mode')} lambda={config.get('lambda')} "
+            f"strategy={config.get('lambda_strategy', 'unknown')} "
             f"commit={config.get('git_commit')} dirty={config.get('git_dirty')} "
             f"gate={config.get('gate_version')} model={config.get('model')}"
         )
@@ -177,6 +178,7 @@ def print_interpretation_notes(results: dict[str, dict[str, Any]]) -> None:
 
     naive = results.get("Naive Swap")
     strict = results.get("Strict-Gated")
+    matched = results.get("Strict-Matched")
     if naive and strict:
         naive_sp = mean_or_none(naive.get("strict_pair_accuracy"))
         strict_sp = mean_or_none(strict.get("strict_pair_accuracy"))
@@ -221,6 +223,24 @@ def print_interpretation_notes(results: dict[str, dict[str, Any]]) -> None:
                 print(f"Valid CF per batch: Naive={naive_vb:.2f} vs Strict={strict_vb:.2f}.")
         else:
             print("- Strict/Naive PairAcc is missing for at least one method; rerun both with the same current code.")
+
+    if strict and matched:
+        strict_sp = mean_or_none(strict.get("strict_pair_accuracy"))
+        matched_sp = mean_or_none(matched.get("strict_pair_accuracy"))
+        strict_gap = mean_or_none(strict.get("strict_prob_gap"))
+        matched_gap = mean_or_none(matched.get("strict_prob_gap"))
+        strict_lam = mean_or_none(strict.get("lambda"))
+        matched_lam = mean_or_none(matched.get("lambda"))
+        if strict_sp is not None and matched_sp is not None:
+            print("\nCoverage-matched diagnostic")
+            print("---------------------------")
+            print(f"Strict lambda={strict_lam} vs Strict-Matched lambda={matched_lam}.")
+            if matched_sp > strict_sp:
+                print("- Strict-Matched improves Strict PairAcc: Strict-Gated was likely under-regularized by lower CF coverage.")
+            elif matched_gap is not None and strict_gap is not None and matched_gap < strict_gap:
+                print("- Strict-Matched improves probability stability but not hard pair accuracy; report this as a soft-consistency gain.")
+            else:
+                print("- Strict-Matched does not improve Strict: the gate may be filtering useful signal, not merely reducing coverage.")
 
 
 def print_markdown_table(results: dict[str, dict[str, Any]]) -> None:
