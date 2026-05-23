@@ -184,6 +184,13 @@ def audit_report_readiness(
     dirty_files = [m.get("path", "<unknown>") for m in metadata if m.get("git_dirty")]
     if dirty_files:
         failures.append(f"Some result files were produced from dirty git state: {dirty_files}.")
+    checkpoint_files = [
+        m.get("path", "<unknown>")
+        for m in metadata
+        if not m.get("missing_meta") and m.get("is_final") is False
+    ]
+    if checkpoint_files:
+        warnings.append(f"Some result files are incremental checkpoints, not final saves: {checkpoint_files}.")
 
     missing_core = [name for name in CORE_METHODS if name not in results]
     if missing_core:

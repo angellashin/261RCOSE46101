@@ -68,6 +68,24 @@ def merge_result_maps(existing: dict, new: dict, source: str = "new_run") -> tup
     return merged, renames
 
 
+def build_result_snapshot(
+    results: dict,
+    run_meta: dict,
+    completed_experiments: list[str],
+    save_stage: str,
+    is_final: bool,
+) -> dict:
+    """Attach run metadata to a partial or final result map."""
+    snapshot = dict(results)
+    snapshot["_meta"] = {
+        **run_meta,
+        "completed_experiments": list(completed_experiments),
+        "save_stage": save_stage,
+        "is_final": bool(is_final),
+    }
+    return snapshot
+
+
 def parse_strict_lambda_tags(exp_tags: list[str] | None) -> list[float]:
     """Extract lambda values from --exp tags like Strict_lam=0.15.
 

@@ -138,6 +138,8 @@ python validity_gated_exp/run_exp.py --exp "Naive Swap" 2>&1 | tee train_new2.lo
 
 다만 보고서용 결과라면 `--seeds`, `--epochs`, `--batch_size`, `--result_path`를 명시하는 편이 재현성에 좋습니다.
 
+`run_exp.py`는 각 experiment가 끝날 때마다 `--result_path`에 checkpoint JSON을 저장합니다. 장시간 run이 중간에 끊겨도 완료된 experiment는 남아 있으므로, 같은 파일을 `compare_results.py`로 열어 어디까지 끝났는지 확인할 수 있습니다. 마지막까지 정상 종료되면 `_meta.is_final=true`로 저장됩니다.
+
 ## 5. Lambda Sensitivity
 
 Strict-Gated가 중심 방법이면 lambda sensitivity를 작게 추가합니다.

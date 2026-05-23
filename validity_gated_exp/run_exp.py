@@ -32,7 +32,12 @@ from dataset import (
     compute_validity, compute_validity_strict,
     load_khaters, save_cf_pairs, load_cf_pairs, HatersDataset,
 )
-from experiment_utils import coverage_matched_lambda, merge_result_maps, parse_strict_lambda_tags
+from experiment_utils import (
+    build_result_snapshot,
+    coverage_matched_lambda,
+    merge_result_maps,
+    parse_strict_lambda_tags,
+)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
@@ -599,34 +604,6 @@ if __name__ == '__main__':
         cf_lookup = load_cf_pairs(cf_path)
         print(f'Pre-computed CF pairs loaded: {len(cf_lookup)} entries → kiwi skipped for swap/gated/strict')
 
-    ABLATIONS = [
-        dict(tag='Baseline',        mode='none',   use_cons=False, lam=0.0),
-        dict(tag='Masking Cons Reg',mode='mask',   use_cons=True,  lam=LAMBDA),
-        dict(tag='Naive Swap',      mode='swap',   use_cons=True,  lam=LAMBDA),
-        dict(tag='Validity-Gated',  mode='gated',  use_cons=True,  lam=LAMBDA),
-        dict(tag='Strict-Gated',    mode='strict', use_cons=True,  lam=LAMBDA),
-        dict(tag='Strict-Matched',  mode='strict', use_cons=True,
-             lam=strict_matched_lam, lambda_strategy='coverage_matched_to_naive'),
-    ]
-
-    # --exp 인자로 특정 실험만 선택
-    run_ablations = ABLATIONS
-    lam_targets = parse_strict_lambda_tags(args.exp)
-    if args.exp:
-        run_ablations = [e for e in ABLATIONS if e['tag'] in args.exp]
-
-    all_results = {}
-    for exp in run_ablations:
-        print(f"\n{'#'*60}\n  Experiment: {exp['tag']}\n{'#'*60}")
-        all_results[exp['tag']] = run_experiment(**exp, cf_lookup=cf_lookup)
-
-    # λ sensitivity (Strict-Gated; lam=0.1 is already in ABLATIONS)
-    for lam in lam_targets:
-        key = f'Strict_lam={lam}'
-        all_results[key] = run_experiment(
-            tag=key, mode='strict', use_cons=True, lam=lam, n_epochs=EPOCHS,
-            cf_lookup=cf_lookup)
-
     run_meta = {
         'git_commit': git_commit(),
         'git_dirty': git_dirty(),
@@ -651,7 +628,75 @@ if __name__ == '__main__':
         'cf_pairs_base_valid': n_base_valid,
         'cf_pairs_strict_valid': n_strict_valid,
     }
-    all_results['_meta'] = run_meta
+
+    existing_results_for_merge = {}
+    if os.path.exists(RESULT_PATH):
+        with open(RESULT_PATH, 'r', encoding='utf-8') as f:
+            existing_results_for_merge = json.load(f)
+        existing_meta = existing_results_for_merge.get('_meta')
+        if not existing_meta:
+            print('WARNING: existing result file has no _meta; use a fresh --result_path for paper tables.')
+        else:
+            for key in ('git_commit', 'gate_version', 'model', 'max_len'):
+                if existing_meta.get(key) != run_meta.get(key):
+                    print(f'WARNING: existing result _meta mismatch for {key}: '
+                          f'{existing_meta.get(key)} != {run_meta.get(key)}')
+
+    ABLATIONS = [
+        dict(tag='Baseline',        mode='none',   use_cons=False, lam=0.0),
+        dict(tag='Masking Cons Reg',mode='mask',   use_cons=True,  lam=LAMBDA),
+        dict(tag='Naive Swap',      mode='swap',   use_cons=True,  lam=LAMBDA),
+        dict(tag='Validity-Gated',  mode='gated',  use_cons=True,  lam=LAMBDA),
+        dict(tag='Strict-Gated',    mode='strict', use_cons=True,  lam=LAMBDA),
+        dict(tag='Strict-Matched',  mode='strict', use_cons=True,
+             lam=strict_matched_lam, lambda_strategy='coverage_matched_to_naive'),
+    ]
+
+    # --exp 인자로 특정 실험만 선택
+    run_ablations = ABLATIONS
+    lam_targets = parse_strict_lambda_tags(args.exp)
+    if args.exp:
+        run_ablations = [e for e in ABLATIONS if e['tag'] in args.exp]
+
+    all_results = {}
+    reported_renames = set()
+
+    def save_results_snapshot(save_stage: str, is_final: bool = False):
+        snapshot = build_result_snapshot(
+            all_results,
+            run_meta,
+            [name for name, value in all_results.items() if isinstance(value, dict) and 'f1' in value],
+            save_stage,
+            is_final,
+        )
+        if existing_results_for_merge:
+            snapshot, renames = merge_result_maps(existing_results_for_merge, snapshot, source='new_run')
+            for old_name, new_name in renames:
+                if (old_name, new_name) in reported_renames:
+                    continue
+                reported_renames.add((old_name, new_name))
+                print(f'WARNING: existing result "{old_name}" has different config; '
+                      f'saving new run as "{new_name}" instead of overwriting.')
+        tmp_path = RESULT_PATH + '.tmp'
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            json.dump(snapshot, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, RESULT_PATH)
+        label = 'final' if is_final else 'checkpoint'
+        print(f'Results {label} saved ({save_stage}) → {RESULT_PATH}')
+        return snapshot
+
+    for exp in run_ablations:
+        print(f"\n{'#'*60}\n  Experiment: {exp['tag']}\n{'#'*60}")
+        all_results[exp['tag']] = run_experiment(**exp, cf_lookup=cf_lookup)
+        save_results_snapshot(f'after {exp["tag"]}')
+
+    # λ sensitivity (Strict-Gated; lam=0.1 is already in ABLATIONS)
+    for lam in lam_targets:
+        key = f'Strict_lam={lam}'
+        all_results[key] = run_experiment(
+            tag=key, mode='strict', use_cons=True, lam=lam, n_epochs=EPOCHS,
+            cf_lookup=cf_lookup)
+        save_results_snapshot(f'after {key}')
 
     # Summary table
     def _fmt(lst): return f'{np.mean(lst):.4f}±{np.std(lst):.4f}' if lst else 'N/A'
@@ -681,29 +726,12 @@ if __name__ == '__main__':
                           f'  (n={len(b)}, mean±std: {np.mean(b):.4f}±{np.std(b):.4f} → '
                           f'{np.mean(g):.4f}±{np.std(g):.4f})')
 
-    if os.path.exists(RESULT_PATH):
-        with open(RESULT_PATH, 'r', encoding='utf-8') as f:
-            existing = json.load(f)
-        existing_meta = existing.get('_meta')
-        if not existing_meta:
-            print('WARNING: existing result file has no _meta; use a fresh --result_path for paper tables.')
-        else:
-            for key in ('git_commit', 'gate_version', 'model', 'max_len'):
-                if existing_meta.get(key) != run_meta.get(key):
-                    print(f'WARNING: existing result _meta mismatch for {key}: '
-                          f'{existing_meta.get(key)} != {run_meta.get(key)}')
-        all_results, renames = merge_result_maps(existing, all_results, source='new_run')
-        for old_name, new_name in renames:
-            print(f'WARNING: existing result "{old_name}" has different config; '
-                  f'saving new run as "{new_name}" instead of overwriting.')
-    with open(RESULT_PATH, 'w', encoding='utf-8') as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=2)
-    print(f'\nResults saved → {RESULT_PATH}')
+    saved_results = save_results_snapshot('final', is_final=True)
 
     import csv, statistics
     csv_path = RESULT_PATH.replace('.json', '.csv')
     rows = []
-    for exp_tag, metrics in all_results.items():
+    for exp_tag, metrics in saved_results.items():
         if not isinstance(metrics, dict) or 'f1' not in metrics:
             continue
         def _m(vals): return round(statistics.mean(vals), 4) if vals else ''

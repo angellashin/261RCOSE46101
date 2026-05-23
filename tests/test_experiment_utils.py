@@ -86,6 +86,47 @@ class ExperimentUtilsTest(unittest.TestCase):
         self.assertEqual(renames, [])
         self.assertEqual(merged["Strict-Gated"]["f1"], [0.80])
 
+    def test_build_result_snapshot_records_partial_progress(self):
+        snapshot = experiment_utils.build_result_snapshot(
+            {"Baseline": {"f1": [0.79]}},
+            {"git_commit": "abc123"},
+            ["Baseline"],
+            "after Baseline",
+            is_final=False,
+        )
+
+        self.assertEqual(snapshot["Baseline"]["f1"], [0.79])
+        self.assertEqual(snapshot["_meta"]["git_commit"], "abc123")
+        self.assertEqual(snapshot["_meta"]["completed_experiments"], ["Baseline"])
+        self.assertEqual(snapshot["_meta"]["save_stage"], "after Baseline")
+        self.assertFalse(snapshot["_meta"]["is_final"])
+
+    def test_repeated_snapshot_merge_against_same_base_is_stable(self):
+        existing = {
+            "Baseline": {
+                "f1": [0.70],
+                "config": {"lambda": 0.0, "git_commit": "old"},
+            }
+        }
+        snapshot = experiment_utils.build_result_snapshot(
+            {
+                "Baseline": {
+                    "f1": [0.79],
+                    "config": {"lambda": 0.0, "git_commit": "new"},
+                }
+            },
+            {"git_commit": "new"},
+            ["Baseline"],
+            "after Baseline",
+            is_final=False,
+        )
+
+        first, first_renames = experiment_utils.merge_result_maps(existing, snapshot, source="new_run")
+        second, second_renames = experiment_utils.merge_result_maps(existing, snapshot, source="new_run")
+        self.assertEqual(first_renames, second_renames)
+        self.assertEqual(sorted(first), sorted(second))
+        self.assertIn("Baseline [lambda=0.0, new_run]", first)
+
     def test_parse_strict_lambda_tags_defaults_for_full_run(self):
         self.assertEqual(experiment_utils.parse_strict_lambda_tags(None), [0.05, 0.2])
 

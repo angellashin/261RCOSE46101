@@ -196,6 +196,7 @@ class CompareResultsTest(unittest.TestCase):
             "gate_version": "v1",
             "model": "m",
             "max_len": 128,
+            "is_final": True,
         }]
 
         failures, warnings, passes = compare_results.audit_report_readiness(results, metadata)
@@ -219,6 +220,20 @@ class CompareResultsTest(unittest.TestCase):
         self.assertIn("only 1 valid F1 seed", joined)
         self.assertIn("missing report-critical metrics", joined)
         self.assertNotIn("Core methods have at least", "\n".join(passes))
+
+    def test_report_readiness_audit_warns_on_checkpoint_results(self):
+        metadata = [{
+            "path": "partial.json",
+            "git_commit": "abc123",
+            "git_dirty": False,
+            "gate_version": "v1",
+            "model": "m",
+            "max_len": 128,
+            "is_final": False,
+        }]
+
+        _, warnings, _ = compare_results.audit_report_readiness({}, metadata)
+        self.assertIn("incremental checkpoints", "\n".join(warnings))
 
     def test_loading_and_markdown_table_from_json(self):
         payload = {
