@@ -107,6 +107,35 @@ class CompareResultsTest(unittest.TestCase):
         )
         self.assertEqual(best, ("Strict_lam=0.2", 0.83))
 
+    def test_paired_delta_requires_matched_seed_count(self):
+        self.assertEqual(compare_results.paired_delta([0.83, 0.84], [0.82, 0.83]), [0.010000000000000009, 0.010000000000000009])
+        self.assertEqual(compare_results.paired_delta([0.83], [0.82, 0.83]), [])
+        self.assertEqual(compare_results.paired_delta([0.83, float("nan")], [0.82, 0.83]), [])
+
+    def test_naive_vs_best_gated_diagnostic_prints_seed_consistency(self):
+        results = {
+            "Naive Swap": {
+                "f1": [0.79, 0.80, 0.78],
+                "strict_pair_accuracy": [0.82, 0.83, 0.82],
+                "strict_prob_gap": [0.020, 0.022, 0.021],
+            },
+            "Strict-Matched": {
+                "f1": [0.795, 0.799, 0.781],
+                "strict_pair_accuracy": [0.83, 0.84, 0.81],
+                "strict_prob_gap": [0.018, 0.020, 0.023],
+            },
+        }
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            compare_results.print_naive_vs_best_gated_diagnostic(results)
+        text = out.getvalue()
+        self.assertIn("Naive vs best gated paired diagnostic", text)
+        self.assertIn("Best gated row: Strict-Matched", text)
+        self.assertIn("Strict PairAcc", text)
+        self.assertIn("2/3 matched seeds", text)
+        self.assertIn("Strict ProbGap", text)
+
     def test_recommended_next_steps_request_matched_and_lambda_when_naive_wins(self):
         results = {
             "Baseline": {"f1": [0.79]},

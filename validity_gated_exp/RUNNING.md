@@ -220,6 +220,7 @@ python validity_gated_exp/compare_results.py \
 `TrainCF%`, `ConsBatch%`, `ValidCF/B`는 Strict가 Naive보다 약하게 나왔을 때 regularization signal coverage 차이를 설명하는 데 씁니다.
 `FPR minN`은 identity category별 FPR을 계산할 때 가장 작은 normal-sample group 크기입니다. 이 값이 작으면 `FPR Gap`은 보조 지표로만 해석합니다.
 `Best strict-family variant`는 `Strict-Gated`, `Strict-Matched`, `Strict_lam=*` 중 Strict Pair Acc가 가장 높은 gated 계열 결과를 골라줍니다. 보고서 대표 gated 결과를 고를 때 이 섹션을 먼저 확인합니다.
+`Naive vs best gated paired diagnostic`은 같은 seed끼리 best gated와 Naive를 비교합니다. 평균 차이가 작으면 몇 개 seed에서 방향이 유지되는지까지 확인한 뒤 claim 강도를 정합니다.
 `Recommended next steps`는 현재 결과 기준으로 후속 실험이 더 필요한지 알려줍니다. Naive가 gated 계열보다 강하면 `Strict-Matched`와 `Strict_lam=*` follow-up을 먼저 돌리고, gated가 충분히 강하면 method search를 멈추고 error analysis/report로 넘어갑니다.
 
 비교 출력 맨 위의 `Result metadata`와 `Experiment configs`를 먼저 확인합니다.

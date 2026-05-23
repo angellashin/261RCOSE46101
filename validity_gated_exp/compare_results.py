@@ -127,6 +127,21 @@ def best_variant_by(results: dict[str, dict[str, Any]], names: list[str], metric
     return max(scored, key=lambda x: x[1])
 
 
+def paired_delta(values_a: Any, values_b: Any) -> list[float]:
+    if not isinstance(values_a, list) or not isinstance(values_b, list):
+        return []
+    if len(values_a) != len(values_b) or not values_a:
+        return []
+    deltas = []
+    for a, b in zip(values_a, values_b):
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            return []
+        if math.isnan(a) or math.isnan(b):
+            return []
+        deltas.append(float(a) - float(b))
+    return deltas
+
+
 def has_strict_lambda_followup(results: dict[str, dict[str, Any]]) -> bool:
     return any(name.startswith("Strict_lam=") for name in results)
 
@@ -364,6 +379,38 @@ def print_interpretation_notes(results: dict[str, dict[str, Any]]) -> None:
             print("- If Naive still beats this variant, run Strict-Matched to separate low coverage from gate quality.")
 
 
+def print_naive_vs_best_gated_diagnostic(results: dict[str, dict[str, Any]]) -> None:
+    naive = results.get("Naive Swap")
+    strict_names = [name for name in results if is_strict_family(name)]
+    best_strict = best_variant_by(results, strict_names, "strict_pair_accuracy")
+    if not naive or not best_strict:
+        return
+
+    best_name, _ = best_strict
+    best_metrics = results[best_name]
+    comparisons = [
+        ("Strict PairAcc", "strict_pair_accuracy", "higher"),
+        ("Macro-F1", "f1", "higher"),
+        ("Strict ProbGap", "strict_prob_gap", "lower"),
+    ]
+    print("\nNaive vs best gated paired diagnostic")
+    print("-------------------------------------")
+    print(f"Best gated row: {best_name}")
+    for label, key, direction in comparisons:
+        deltas = paired_delta(best_metrics.get(key), naive.get(key))
+        if not deltas:
+            print(f"- {label}: paired seed comparison unavailable.")
+            continue
+        mean_delta = mean(deltas)
+        wins = sum(d > 0 for d in deltas) if direction == "higher" else sum(d < 0 for d in deltas)
+        sign = "+" if mean_delta >= 0 else ""
+        good_word = "higher" if direction == "higher" else "lower"
+        print(
+            f"- {label}: gated-naive mean delta={sign}{mean_delta:.4f}; "
+            f"gated is {good_word} on {wins}/{len(deltas)} matched seeds."
+        )
+
+
 def print_next_step_recommendations(results: dict[str, dict[str, Any]]) -> None:
     print("\nRecommended next steps")
     print("----------------------")
@@ -400,6 +447,7 @@ def main() -> None:
     print_table(results)
     print_baseline_deltas(results)
     print_interpretation_notes(results)
+    print_naive_vs_best_gated_diagnostic(results)
     print_next_step_recommendations(results)
     print_markdown_table(results)
 
