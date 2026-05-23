@@ -468,7 +468,8 @@ if __name__ == '__main__':
             'experiment': exp_tag,
             'f1_mean': _m(metrics['f1']), 'f1_std': _s(metrics['f1']),
             'flip_rate_mean': _m(metrics['flip_rate']), 'flip_rate_std': _s(metrics['flip_rate']),
-            'logit_gap_mean': _m(metrics['logit_gap']), 'logit_gap_std': _s(metrics['logit_gap']),
+            'prob_gap_mean': _m(metrics['prob_gap']), 'prob_gap_std': _s(metrics['prob_gap']),
+            'strict_flip_mean': _m(metrics['strict_flip_rate']), 'strict_flip_std': _s(metrics['strict_flip_rate']),
             'fpr_gap_mean': _m(metrics['fpr_gap']), 'fpr_gap_std': _s(metrics['fpr_gap']),
         })
     if rows:
