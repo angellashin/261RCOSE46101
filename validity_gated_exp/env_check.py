@@ -271,6 +271,34 @@ def print_report(report: dict[str, object]) -> None:
         print("ENV CHECK PASS")
 
 
+def print_package_failure(packages: list[dict[str, object]]) -> None:
+    print("Missing or broken Python packages")
+    print("---------------------------------")
+    for package in packages:
+        if package["ok"]:
+            continue
+        print(f"- {package['import_name']} [pip: {package['pip_name']}]")
+        print(f"  error: {package['error']}")
+        print(f"  install: {package['install_hint']}")
+
+    print("Recommended fix when CUDA torch is already installed:")
+    print("  python -m pip install -r validity_gated_exp/requirements-runtime.txt")
+    print("Direct fallback:")
+    print("  python -m pip install datasets transformers kiwipiepy scipy tqdm numpy scikit-learn")
+    print("If torch itself is missing or broken:")
+    print("  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+
+
+def assert_runtime_packages() -> None:
+    packages = check_packages()
+    failed = [package for package in packages if not package["ok"]]
+    if not failed:
+        return
+
+    print_package_failure(failed)
+    raise SystemExit(1)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--disk_path", default=str(REPO_ROOT))

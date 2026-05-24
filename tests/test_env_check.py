@@ -127,6 +127,66 @@ class EnvCheckTest(unittest.TestCase):
         self.assertIn("python -m pip install -r validity_gated_exp/requirements.txt", text)
         self.assertIn("ENV CHECK FAIL", text)
 
+    def test_print_package_failure_is_run_exp_friendly(self):
+        packages = [
+            {
+                "ok": False,
+                "import_name": "datasets",
+                "pip_name": "datasets",
+                "version": None,
+                "error": "ModuleNotFoundError",
+                "install_hint": "python -m pip install datasets",
+            },
+            {
+                "ok": False,
+                "import_name": "sklearn",
+                "pip_name": "scikit-learn",
+                "version": None,
+                "error": "ModuleNotFoundError",
+                "install_hint": "python -m pip install scikit-learn",
+            },
+        ]
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            env_check.print_package_failure(packages)
+
+        text = out.getvalue()
+        self.assertIn("Missing or broken Python packages", text)
+        self.assertIn("datasets [pip: datasets]", text)
+        self.assertIn("sklearn [pip: scikit-learn]", text)
+        self.assertIn("requirements-runtime.txt", text)
+        self.assertIn("datasets transformers kiwipiepy scipy tqdm numpy scikit-learn", text)
+
+    def test_assert_runtime_packages_exits_on_missing_package(self):
+        original = env_check.check_packages
+        env_check.check_packages = lambda: [
+            {
+                "ok": False,
+                "import_name": "datasets",
+                "pip_name": "datasets",
+                "version": None,
+                "error": "ModuleNotFoundError",
+                "install_hint": "python -m pip install datasets",
+            }
+        ]
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    env_check.assert_runtime_packages()
+        finally:
+            env_check.check_packages = original
+
+        self.assertEqual(caught.exception.code, 1)
+
+    def test_assert_runtime_packages_returns_on_success(self):
+        original = env_check.check_packages
+        env_check.check_packages = lambda: [{"ok": True}]
+        try:
+            env_check.assert_runtime_packages()
+        finally:
+            env_check.check_packages = original
+
 
 if __name__ == "__main__":
     unittest.main()

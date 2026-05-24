@@ -14,6 +14,9 @@ import os, sys, json, random, gc, subprocess
 from contextlib import nullcontext
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from collections import Counter, defaultdict
+from env_check import assert_runtime_packages
+
+assert_runtime_packages()
 
 import numpy as np
 import torch
