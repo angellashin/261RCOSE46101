@@ -253,7 +253,11 @@ def print_report(report: dict[str, object]) -> None:
             print(f"  install: {package['install_hint']}")
 
     if any(not package["ok"] for package in report["packages"]):
-        print("Install all project dependencies:")
+        print("Install missing non-torch dependencies when torch is already installed:")
+        print("  python -m pip install -r validity_gated_exp/requirements-runtime.txt")
+        print("Install or repair CUDA torch separately if torch failed:")
+        print("  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+        print("Fresh all-in-one install:")
         print("  python -m pip install -r validity_gated_exp/requirements.txt")
 
     for warning in report["warnings"]:

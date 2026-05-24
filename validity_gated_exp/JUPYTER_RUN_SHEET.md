@@ -39,8 +39,10 @@ python -m pip install scikit-learn
 If several packages are missing:
 
 ```bash
-python -m pip install -r validity_gated_exp/requirements.txt
+python -m pip install -r validity_gated_exp/requirements-runtime.txt
 ```
+
+Use `requirements-runtime.txt` when torch is already installed; it avoids a second large PyTorch download. If torch itself fails, reinstall the CUDA wheel separately.
 
 If CUDA is false, stop before the full run unless you intentionally want a slow CPU run.
 

@@ -40,7 +40,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-python -m pip install -r validity_gated_exp/requirements.txt
+python -m pip install -r validity_gated_exp/requirements-runtime.txt
 ```
 
 설치가 끝나면 학습 스크립트보다 먼저 환경 검사를 실행합니다.
@@ -53,6 +53,12 @@ python validity_gated_exp/env_check.py --require_cuda --min_free_gb 15
 
 ```bash
 python -m pip install scikit-learn
+```
+
+여러 패키지가 빠져 있으면 torch를 다시 받지 않도록 runtime requirements를 설치하세요.
+
+```bash
+python -m pip install -r validity_gated_exp/requirements-runtime.txt
 ```
 
 Jupyter에서 이 venv를 커널로 쓰려면:

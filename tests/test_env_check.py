@@ -122,6 +122,8 @@ class EnvCheckTest(unittest.TestCase):
 
         text = out.getvalue()
         self.assertIn("FAIL sklearn [scikit-learn]", text)
+        self.assertIn("python -m pip install -r validity_gated_exp/requirements-runtime.txt", text)
+        self.assertIn("python -m pip install torch torchvision torchaudio", text)
         self.assertIn("python -m pip install -r validity_gated_exp/requirements.txt", text)
         self.assertIn("ENV CHECK FAIL", text)
 

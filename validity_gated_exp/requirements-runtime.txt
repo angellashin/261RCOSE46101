@@ -1,0 +1,9 @@
+# Non-torch runtime dependencies for Jupyter/GPU servers where torch is already installed.
+# Use this after installing the CUDA-specific PyTorch wheel to avoid downloading torch twice.
+transformers>=4.38.0
+datasets>=2.18.0
+kiwipiepy>=0.18.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+tqdm>=4.66.0
+numpy>=1.24.0
