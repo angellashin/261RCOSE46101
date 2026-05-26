@@ -1,0 +1,18 @@
+% Counterfactual statistics (tab:cf_stats)
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrr}
+\hline
+Metric & Base validity & Strict validity \\
+\hline
+CF pairs (total) & 7,735 & 7,735 \\
+Valid CF pairs & 6,758 & 5,964 \\
+Train valid CF ratio ($c$) & 0.04493 & 0.03464 \\
+Configured regularizer ($\lambda$) & 0.10 & 0.10 \\
+Effective regularizer ($\lambda_{\mathrm{eff}}=\lambda\times c$) & 0.00449 & 0.00346 \\
+\hline
+\end{tabular}
+\caption{Counterfactual construction statistics and effective regularization strength. Numbers were extracted from the experiment outputs: [nlp_project/validity_gated_exp/results/results_core_followup.json](nlp_project/validity_gated_exp/results/results_core_followup.json) (mirror: [final/results_core_followup.json](final/results_core_followup.json)). Table entries map to JSON keys `cf_pairs_total`, `cf_pairs_base_valid`, `cf_pairs_strict_valid`, and `lambda`.}
+\label{tab:cf_stats}
+\end{table}
