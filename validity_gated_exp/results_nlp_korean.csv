@@ -1,0 +1,4 @@
+experiment,f1_mean,f1_std,flip_rate_mean,flip_rate_std,prob_gap_mean,prob_gap_std,pair_accuracy_mean,pair_accuracy_std,strict_flip_rate_mean,strict_flip_rate_std,strict_prob_gap_mean,strict_prob_gap_std,strict_pair_accuracy_mean,strict_pair_accuracy_std,pair_count_mean,strict_pair_count_mean,train_valid_cf_count_mean,train_valid_cf_ratio_mean,cons_batch_ratio_mean,avg_valid_cf_per_batch_mean,lambda_mean,effective_lambda_mean,fpr_min_group_n_mean,fpr_gap_mean,fpr_gap_std
+Naive Swap,0.7935,0.0004,0.0253,0.0047,0.0197,0.0007,0.8297,0.0016,0.0186,0.002,0.0197,0.0004,0.83,0.0061,455,350,7735,0.0449,1.0,11.4933,0.1,0.0045,3,0.5521,0.2799
+Strict-Gated,0.7945,0.0014,0.0264,0.0031,0.0191,0.0002,0.8275,0.0078,0.0214,0.0101,0.0188,0.0004,0.82,0.0,455,350,5964,0.0346,0.9998,8.8618,0.1,0.0035,3,0.7778,0.0
+Strict-Matched,0.7944,0.0035,0.0253,0.0047,0.0195,0.002,0.822,0.0,0.0229,0.0081,0.0187,0.0023,0.8157,0.002,455,350,5964,0.0346,0.9998,8.8618,0.1297,0.0045,3,0.7639,0.0196

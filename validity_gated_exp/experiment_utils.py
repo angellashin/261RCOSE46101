@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+<<<<<<< HEAD
+=======
 import math
 
+>>>>>>> main
 
 ERROR_EXAMPLE_BUCKETS = (
     "flip",
@@ -16,6 +19,8 @@ ERROR_EXAMPLE_BUCKETS = (
     "false_positive_cf",
 )
 
+<<<<<<< HEAD
+=======
 AVAILABLE_EXPERIMENT_TAGS = (
     "Baseline",
     "Masking Cons Reg",
@@ -54,6 +59,7 @@ RESUME_METRIC_KEYS = (
     "strict_pair_accuracy",
 )
 
+>>>>>>> main
 
 def coverage_matched_lambda(
     base_lambda: float,
@@ -138,6 +144,8 @@ def build_result_snapshot(
     return snapshot
 
 
+<<<<<<< HEAD
+=======
 def config_mismatches(existing_config: dict | None, expected_config: dict, keys=RESUME_CONFIG_KEYS) -> list[str]:
     """Return config keys that differ enough to prevent safe result reuse."""
     if not isinstance(existing_config, dict):
@@ -207,6 +215,7 @@ def can_resume_result(
     return True, "complete compatible result"
 
 
+>>>>>>> main
 def parse_strict_lambda_tags(exp_tags: list[str] | None) -> list[float]:
     """Extract lambda values from --exp tags like Strict_lam=0.15.
 
@@ -226,7 +235,11 @@ def parse_strict_lambda_tags(exp_tags: list[str] | None) -> list[float]:
             value = float(raw_value)
         except ValueError as exc:
             raise ValueError(f"Invalid Strict_lam tag: {tag}") from exc
+<<<<<<< HEAD
+        if value <= 0:
+=======
         if not math.isfinite(value) or value <= 0:
+>>>>>>> main
             raise ValueError(f"Strict_lam must be positive: {tag}")
         if value not in seen:
             values.append(value)
@@ -244,6 +257,8 @@ def unknown_experiment_tags(exp_tags: list[str] | None, known_tags: set[str]) ->
     ]
 
 
+<<<<<<< HEAD
+=======
 def resolve_requested_experiments(exp_tags: list[str] | None) -> tuple[list[str], list[float]]:
     """Resolve --exp tags into base experiment names and Strict_lam follow-ups."""
     known_tags = set(AVAILABLE_EXPERIMENT_TAGS)
@@ -263,6 +278,7 @@ def resolve_requested_experiments(exp_tags: list[str] | None) -> tuple[list[str]
     return selected, strict_lambdas
 
 
+>>>>>>> main
 def _round_float(value, digits: int):
     if value is None:
         return None

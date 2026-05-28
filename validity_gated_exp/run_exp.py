@@ -14,9 +14,12 @@ import os, sys, json, random, gc, subprocess
 from contextlib import nullcontext
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from collections import Counter, defaultdict
+<<<<<<< HEAD
+=======
 from env_check import assert_runtime_packages
 
 assert_runtime_packages()
+>>>>>>> main
 
 import numpy as np
 import torch
@@ -37,11 +40,19 @@ from dataset import (
 )
 from experiment_utils import (
     build_result_snapshot,
+<<<<<<< HEAD
+    collect_fairness_error_examples,
+    coverage_matched_lambda,
+    merge_result_maps,
+    parse_strict_lambda_tags,
+    unknown_experiment_tags,
+=======
     can_resume_result,
     collect_fairness_error_examples,
     coverage_matched_lambda,
     merge_result_maps,
     resolve_requested_experiments,
+>>>>>>> main
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -49,9 +60,15 @@ SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR    = SCRIPT_DIR   # override with env var EXP_DIR or --base_dir
 MODEL_NAME  = 'klue/roberta-base'
 MAX_LEN     = 128
+<<<<<<< HEAD
+BATCH_SIZE  = 256    # L4 24GB; keep fixed across ablations
+EPOCHS      = 3
+LR          = 2e-5
+=======
 BATCH_SIZE  = 64     # use 8-16 on CPU/MPS smoke runs; keep fixed across ablations
 EPOCHS      = 3
 LR          = 3e-5
+>>>>>>> main
 WEIGHT_DECAY= 0.01
 LAMBDA      = 0.1
 MAX_MATCHED_LAMBDA = 0.3
@@ -59,6 +76,18 @@ MAX_ERROR_EXAMPLES_PER_BUCKET = 5
 SEEDS       = [42, 123, 456]
 SUBSET      = 0      # 0 = full 172K
 NUM_WORKERS = 4
+<<<<<<< HEAD
+AVAILABLE_EXPERIMENT_TAGS = (
+    'Baseline',
+    'Masking Cons Reg',
+    'Naive Swap',
+    'Validity-Gated',
+    'Strict-Gated',
+    'Strict-Matched',
+)
+
+=======
+>>>>>>> main
 BASE_DIR = os.environ.get('EXP_DIR', BASE_DIR)
 
 CKPT_DIR    = os.path.join(BASE_DIR, 'checkpoints')
@@ -368,6 +397,8 @@ def eval_fairness(model, test_examples, tokenizer):
     )
 
 
+<<<<<<< HEAD
+=======
 def experiment_config(
     tag: str,
     mode: str,
@@ -387,6 +418,7 @@ def experiment_config(
     }
 
 
+>>>>>>> main
 # ── Experiment runner ─────────────────────────────────────────────────────────
 def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
                    seeds=None, n_epochs: int = EPOCHS,
@@ -406,7 +438,19 @@ def run_experiment(tag: str, mode: str, use_cons: bool, lam: float = LAMBDA,
         'fpr_min_group_n': [],
         'per_group_fpr_detail': [],
         'fairness_error_examples': [],
+<<<<<<< HEAD
+        'config': {
+            'tag': tag, 'mode': mode, 'use_cons': use_cons,
+            'lambda': lam, 'lambda_strategy': lambda_strategy,
+            'epochs': n_epochs,
+            'model': MODEL_NAME, 'max_len': MAX_LEN, 'batch_size': BATCH_SIZE,
+            'lr': LR, 'weight_decay': WEIGHT_DECAY,
+            'gate_version': GATE_VERSION, 'git_commit': git_commit(),
+            'git_dirty': git_dirty(),
+        },
+=======
         'config': experiment_config(tag, mode, use_cons, lam, n_epochs, lambda_strategy),
+>>>>>>> main
         'epoch_history': [],   # [{seed, epochs: [{ep, val_f1, total_loss, cls_loss, cons_loss}]}]
     }
 
@@ -562,6 +606,22 @@ if __name__ == '__main__':
     parser.add_argument('--base_dir', default=None,
                         help='directory for data/checkpoints/results; default is script directory')
     parser.add_argument('--result_path', default=None)
+<<<<<<< HEAD
+    args = parser.parse_args()
+    known_tags = set(AVAILABLE_EXPERIMENT_TAGS)
+    unknown_tags = unknown_experiment_tags(args.exp, known_tags)
+    if unknown_tags:
+        valid = sorted(known_tags) + ['Strict_lam=<positive_float>']
+        raise SystemExit(
+            f"Unknown --exp tag(s): {unknown_tags}. "
+            f"Valid choices: {valid}"
+        )
+    try:
+        lam_targets = parse_strict_lambda_tags(args.exp)
+    except ValueError as exc:
+        valid = sorted(known_tags) + ['Strict_lam=<positive_float>']
+        raise SystemExit(f"{exc}. Valid choices: {valid}")
+=======
     parser.add_argument('--resume_completed', action='store_true',
                         help='reuse completed compatible rows already saved in --result_path')
     args = parser.parse_args()
@@ -569,6 +629,7 @@ if __name__ == '__main__':
         requested_base_exps, lam_targets = resolve_requested_experiments(args.exp)
     except ValueError as exc:
         raise SystemExit(str(exc))
+>>>>>>> main
 
     if args.model:
         MODEL_NAME = args.model
@@ -710,7 +771,14 @@ if __name__ == '__main__':
     # --exp 인자로 특정 실험만 선택
     run_ablations = ABLATIONS
     if args.exp:
+<<<<<<< HEAD
+        run_ablations = [e for e in ABLATIONS if e['tag'] in args.exp]
+        if not run_ablations and not lam_targets:
+            valid = sorted(known_tags) + ['Strict_lam=<positive_float>']
+            raise SystemExit(f"No experiments selected. Valid choices: {valid}")
+=======
         run_ablations = [e for e in ABLATIONS if e['tag'] in requested_base_exps]
+>>>>>>> main
 
     all_results = {}
     reported_renames = set()
@@ -741,6 +809,8 @@ if __name__ == '__main__':
 
     for exp in run_ablations:
         print(f"\n{'#'*60}\n  Experiment: {exp['tag']}\n{'#'*60}")
+<<<<<<< HEAD
+=======
         if args.resume_completed:
             expected_config = experiment_config(
                 exp['tag'],
@@ -762,12 +832,15 @@ if __name__ == '__main__':
                 continue
             if exp['tag'] in existing_results_for_merge:
                 print(f'  Cannot resume saved row: {reason}; retraining.')
+>>>>>>> main
         all_results[exp['tag']] = run_experiment(**exp, cf_lookup=cf_lookup)
         save_results_snapshot(f'after {exp["tag"]}')
 
     # λ sensitivity (Strict-Gated; lam=0.1 is already in ABLATIONS)
     for lam in lam_targets:
         key = f'Strict_lam={lam}'
+<<<<<<< HEAD
+=======
         if args.resume_completed:
             expected_config = experiment_config(key, 'strict', True, lam, EPOCHS, 'fixed')
             can_resume, reason = can_resume_result(
@@ -783,6 +856,7 @@ if __name__ == '__main__':
                 continue
             if key in existing_results_for_merge:
                 print(f'  Cannot resume saved row for {key}: {reason}; retraining.')
+>>>>>>> main
         all_results[key] = run_experiment(
             tag=key, mode='strict', use_cons=True, lam=lam, n_epochs=EPOCHS,
             cf_lookup=cf_lookup)

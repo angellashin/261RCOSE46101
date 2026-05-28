@@ -1,0 +1,92 @@
+=================================================================
+  [1] CF Construction Statistics
+=================================================================
+  Item                             Value
+  -------------------------------- --------
+  Train samples                    172,157
+  Swappable samples                7,735  (4.5% of train)
+  Base-valid pairs                 6,758  (87.4% of swappable)
+  Strict-valid pairs               5,148  (66.6% of swappable)
+
+  Strict gate additionally filters:
+  Rejected by strict (vs base)     1,610  (23.8% of base-valid)
+
+  Strict-only rejection breakdown (base-valid → strict-rejected):
+    asym_pair           : 1,024  (63.6%)
+    comparison          : 396  (24.6%)
+    semantics           : 178  (11.1%)
+    harmful_obj         : 12  (0.7%)
+
+=================================================================
+  [2] Category-wise Validity Statistics
+=================================================================
+  Category      Swappable  Base-valid  Strict-valid   Base%  Strict%
+  ------------ ---------- ----------- ------------- ------- --------
+  gender            5,372       4,970         4,541   92.5%    84.5%
+  ethnicity         1,013         886           201   87.5%    19.8%
+  religion            506         397             0   78.5%     0.0%
+  age                 661         394           304   59.6%    46.0%
+  sexuality            99          27            26   27.3%    26.3%
+  disability           84          84            76  100.0%    90.5%
+
+=================================================================
+  [3] Qualitative Pass / Reject Examples
+=================================================================
+
+  [PASS examples — strict-valid=True]
+
+  Category : gender
+  Original : 20대 여자 개돼지 표본들의 표따위 필요없다 나머지세대가 밀어주면그만.
+  CF       : 20대 남자 개돼지 표본들의 표따위 필요없다 나머지세대가 밀어주면그만.
+  Label    : 1
+
+  Category : ethnicity
+  Original : 일본인들 후쿠시마 방사능 식재료쳐먹고 국가단체로 맛탱이감ㅋㅋ
+  CF       : 한국인들 후쿠시마 방사능 식재료쳐먹고 국가단체로 맛탱이감ㅋㅋ
+  Label    : 1
+
+  Category : age
+  Original : 안면인식프로그램은 노인이 돼도 다 찾아냅니다.5.18당시 인물사진도 안면인식프로그램으로 다 확인됨.
+  CF       : 안면인식프로그램은 청년이 돼도 다 찾아냅니다.5.18당시 인물사진도 안면인식프로그램으로 다 확인됨.
+  Label    : 0
+
+  Category : disability
+  Original : 장애인 등산쟁이 1명이 죽어가는건 황망한 일이고 청해부대원 300명이 전염병에 걸려 죽어가는건 별일도 아니냐 죄인아?
+  CF       : 비장애인 등산쟁이 1명이 죽어가는건 황망한 일이고 청해부대원 300명이 전염병에 걸려 죽어가는건 별일도 아니냐 죄인아?
+  Label    : 1
+
+  [REJECT examples — strict-valid=False]
+
+  Category : gender
+  Original : 우리는 이런 민족이고 남 어려운일 있으면 츤데레처럼 일단 도와주고 봤었는데 정치에서 시작된 지역간 분쟁 세대간을 넘어 페미라며 남녀분쟁까지 이 
+  CF       : 우리는 이런 민족이고 남 어려운일 있으면 츤데레처럼 일단 도와주고 봤었는데 정치에서 시작된 지역간 분쟁 세대간을 넘어 한남라며 남녀분쟁까지 이 
+  Reason   : grammar check failed
+  (base_valid=False, strict_valid=False)
+
+  Category : gender
+  Original : '여혐'이 아니라.. 군대라는 전투조직에 여성이란 이유로 하이힐을 신긴건 적절치 않은거라는게 문제겠죠;; 굳이 따진다면 '차별??'이 될지는 몰
+  CF       : '여혐'이 아니라.. 군대라는 전투조직에 남성이란 이유로 하이힐을 신긴건 적절치 않은거라는게 문제겠죠;; 굳이 따진다면 '차별??'이 될지는 몰
+  Reason   : semantic blacklist
+  (base_valid=True, strict_valid=False)
+
+  Category : gender
+  Original : 설사 만나면 길에 똥싸는것 보다 여자 화장실 이용 하는게 낫지 뭐 볼꺼 이따고 보겟노
+  CF       : 설사 만나면 길에 똥싸는것 보다 남자 화장실 이용 하는게 낫지 뭐 볼꺼 이따고 보겟노
+  Reason   : comparison expression
+  (base_valid=True, strict_valid=False)
+
+  Category : ethnicity
+  Original : 말도 안되는 기사 보내고 있네.. 평균.. 외국인한테 비싼돈 월급 다 주는 한국과 외국인이 수습기간이라 월급 100정도 주는 일본인데
+  CF       : 말도 안되는 기사 보내고 있네.. 평균.. 내국인한테 비싼돈 월급 다 주는 한국과 내국인이 수습기간이라 월급 100정도 주는 일본인데
+  Reason   : asymmetric pair (label not preserved)
+  (base_valid=True, strict_valid=False)
+
+  Category : gender
+  Original : 저런 여자를 아내로 선택한 벨기에 대사놈도 또라이일듯. 옷가게 폭행사건뒤 벨기에 대사놈 대응없었고, 이번에도 그런거 보면..알만한 부부네..
+  CF       : 저런 남자를 아내로 선택한 벨기에 대사놈도 또라이일듯. 옷가게 폭행사건뒤 벨기에 대사놈 대응없었고, 이번에도 그런거 보면..알만한 부부네..
+  Reason   : harmful object/event context
+  (base_valid=True, strict_valid=False)
+
+=================================================================
+  완료.
+=================================================================

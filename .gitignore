@@ -1,3 +1,17 @@
+<<<<<<< HEAD
+__pycache__/
+*.pyc
+.venv/
+.env
+checkpoints/
+checkpoints_v2/
+data/kold_v1.json
+run_log.txt
+tmp_peek.py
+hi/
+.claude/
+.ipynb_checkpoints/
+=======
 .venv/
 __pycache__/
 *.py[cod]
@@ -15,3 +29,4 @@ validity_gated_exp/results*.csv
 .cache/
 hf_cache/
 wandb/
+>>>>>>> main
